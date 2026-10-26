@@ -56,7 +56,8 @@ SIMGE_KLASORU="$("$ORTAM/bin/python" -c 'import mergen, pathlib; print(pathlib.P
 # 4. Uygulama simgesi.
 adim "Uygulama simgesi oluşturuluyor"
 if [[ "$(uname)" == "Darwin" ]]; then
-  # ~/Applications/Mergen.app: Launchpad'de ve Spotlight'ta görünür. Mikrofon izni ilk açılışta "Mergen" adıyla sorulur.
+  # ~/Applications/Mergen.app: Launchpad'de ve Spotlight'ta görünür, açılınca kendi penceresiyle Dock'ta ve Cmd+Tab'da
+  # durur (pencere.py). Mikrofon izni ilk açılışta "Mergen" adıyla sorulur.
   APP="$HOME/Applications/Mergen.app"
   rm -rf "$APP"
   mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
@@ -74,9 +75,6 @@ if [[ "$(uname)" == "Darwin" ]]; then
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>0.1.0</string>
   <key>LSMinimumSystemVersion</key><string>11.0</string>
-  <!-- Mergen'in penceresi tarayıcı penceresidir; Python'un Dock simgesi olmaz (yoksa simge açılış bitti sanılana
-       kadar dakikalarca zıplıyordu). -->
-  <key>LSUIElement</key><true/>
   <key>NSMicrophoneUsageDescription</key><string>Mergen sizi duyabilmek için mikrofonu kullanır; ses bilgisayarınızın dışına gönderilmez.</string>
 </dict>
 </plist>

@@ -1,6 +1,7 @@
 """Mergen'in ekranı: yerel bir sunucu (sadece bu bilgisayar, 127.0.0.1) arayuz.html'i sunar ve olayları canlı yollar
 (Server-Sent Events): durum (uyku / dinliyor / düşünüyor / konuşuyor), ses seviyesi (topun hareketi) ve mesajlar.
-Açılışta kenarlıksız bir uygulama penceresi açar (Edge ya da Chrome --app; ikisi de yoksa varsayılan tarayıcı)."""
+Ekran Mergen'in kendi penceresinde gösterilir (pencere.py); o açılamazsa tarayıcıda (Edge ya da Chrome --app, ikisi de
+yoksa varsayılan tarayıcı)."""
 import json
 import queue
 import shutil
@@ -8,6 +9,7 @@ import socket
 import subprocess
 import threading
 import time
+import urllib.request
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -17,6 +19,7 @@ from .yollar import MAC, PACKAGE, WINDOWS
 PAGE = PACKAGE / "arayuz.html"
 SAMPLES = PACKAGE / "ornekler"
 PORT = 8765
+URL = f"http://127.0.0.1:{PORT}/"
 if WINDOWS:
     APP_BROWSERS = [
         Path(r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"),
@@ -47,6 +50,9 @@ class Screen:
         self.routes: dict[tuple[str, str], object] = {}
         # Ekrandaki "Kapat" düğmesine basılınca çağrılır (Mergen'i tamamen kapatır).
         self.on_shutdown = None
+        # Mergen ikinci kez açılmak istenince çağrılır: kendi penceresi öne gelir (pencere.py).
+        self.on_focus = None
+        self.routes[("POST", "/one")] = lambda body: self.on_focus() if self.on_focus else Screen.open()
         screen = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -115,8 +121,22 @@ class Screen:
             return False
 
     @staticmethod
+    def bring_to_front() -> None:
+        """Açık Mergen'in penceresini öne getirir (yoksa ekranı tarayıcıda açar)."""
+        try:
+            request = urllib.request.Request(URL + "one", data=b"{}", method="POST")
+            urllib.request.urlopen(request, timeout=3)
+        except OSError:
+            Screen.open()
+
+    @property
+    def url(self) -> str:
+        return URL
+
+    @staticmethod
     def open() -> None:
-        url = f"http://127.0.0.1:{PORT}/"
+        """Ekranı tarayıcı penceresinde açar (kendi penceresi açılamadığında; pencere.py)."""
+        url = URL
         browser = next((p for p in APP_BROWSERS if p.exists()), None) or shutil.which("msedge") \
             or shutil.which("google-chrome") or shutil.which("chromium")
         if browser:
