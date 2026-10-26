@@ -1,0 +1,706 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>MERGEN</title>
+<style>
+  :root {
+    --bg: #05080d;
+    --panel: rgba(12, 22, 32, 0.72);
+    --line: rgba(90, 200, 255, 0.18);
+    --text: #d9eef8;
+    --muted: #6f8fa3;
+    --me: #ffd28a;
+    --mergen: #7fdcff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font-family: "Segoe UI", -apple-system, system-ui, sans-serif; overflow: hidden; }
+  body { display: grid; grid-template-columns: 1fr 380px; grid-template-rows: 100vh; }
+  #sahne { position: relative; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #durum { position: absolute; left: 0; right: 0; bottom: 34px; text-align: center; letter-spacing: 0.35em;
+    font-size: 13px; color: var(--muted); text-transform: uppercase; transition: color 0.4s; }
+  #kapat { position: absolute; top: 18px; right: 18px; border: 1px solid rgba(255, 120, 110, 0.35);
+    background: rgba(40, 12, 12, 0.6); color: #ff9a90; font: 12px "Segoe UI", sans-serif; letter-spacing: 0.15em;
+    padding: 6px 12px; border-radius: 14px; cursor: pointer; }
+  #kapat:hover { background: rgba(80, 20, 20, 0.85); }
+  #ayarDugme { position: absolute; top: 18px; left: 18px; border: 1px solid var(--line); background: rgba(12, 30, 44, 0.7);
+    color: var(--mergen); font: 12px "Segoe UI", sans-serif; letter-spacing: 0.15em; padding: 6px 12px;
+    border-radius: 14px; cursor: pointer; z-index: 2; }
+  #ayarDugme:hover, #ayarDugme.acik { background: rgba(20, 50, 70, 0.95); }
+  #ayarlar { position: absolute; top: 56px; left: 18px; width: 300px; display: none; z-index: 2;
+    max-height: calc(100vh - 80px); overflow-y: auto;
+    background: rgba(8, 18, 28, 0.94); border: 1px solid var(--line); border-radius: 12px; padding: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); }
+  #ayarlar.acik { display: block; }
+  #ayarlar label { display: block; font-size: 11px; letter-spacing: 0.18em; color: var(--muted); margin: 0 0 6px; }
+  #ayarlar .satir { margin-bottom: 16px; }
+  #ayarlar select { width: 100%; background: #0d1d2a; color: var(--text); border: 1px solid var(--line); border-radius: 6px;
+    padding: 6px 8px; font: 13px "Segoe UI", sans-serif; }
+  #ayarlar input[type=range] { width: 100%; accent-color: #7fdcff; }
+  #ayarlar textarea { width: 100%; box-sizing: border-box; min-height: 52px; resize: vertical; background: #0d1d2a;
+    color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font: 13px "Segoe UI", sans-serif; }
+  #ayarlar .not { font-size: 11px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+  #ayarlar .kutucuk { display: flex; align-items: center; gap: 8px; font-size: 12px; letter-spacing: 0.1em; cursor: pointer; }
+  #ayarlar hr { border: none; border-top: 1px solid var(--line); margin: 4px 0 16px; }
+  .kesildi-not { font-size: 11px; color: var(--muted); font-style: italic; margin-top: 4px; }
+  #seviyeYazi, #sessizlikYazi { float: right; color: var(--mergen); letter-spacing: 0; }
+  #dene { width: 100%; border: 1px solid rgba(127, 220, 255, 0.4); background: rgba(20, 50, 70, 0.8); color: var(--mergen);
+    font: 13px "Segoe UI", sans-serif; padding: 8px; border-radius: 8px; cursor: pointer; }
+  #dene:hover { background: rgba(30, 70, 95, 0.95); }
+  #kaydedildi { font-size: 11px; color: var(--muted); text-align: center; margin-top: 8px; min-height: 14px; }
+  #ad { position: absolute; left: 0; right: 0; top: 26px; text-align: center; letter-spacing: 0.6em; font-size: 14px;
+    color: rgba(127, 220, 255, 0.55); }
+  #yazi { border-left: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column;
+    min-height: 0; height: 100%; position: relative; }
+  #yazi h2 { margin: 0; padding: 18px 20px 12px; font-size: 12px; letter-spacing: 0.3em; color: var(--muted);
+    font-weight: 600; border-bottom: 1px solid var(--line); }
+  #akis { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 18px 24px; }
+  #akis::-webkit-scrollbar { width: 8px; }
+  #akis::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.03); }
+  #akis::-webkit-scrollbar-thumb { background: rgba(127, 220, 255, 0.35); border-radius: 4px; }
+  #akis::-webkit-scrollbar-thumb:hover { background: rgba(127, 220, 255, 0.6); }
+  #asagi { position: absolute; right: 18px; bottom: 16px; display: none; border: 1px solid var(--line);
+    background: rgba(12, 30, 44, 0.95); color: var(--mergen); font: 12px "Segoe UI", sans-serif; padding: 6px 12px;
+    border-radius: 14px; cursor: pointer; }
+  #asagi:hover { background: rgba(20, 50, 70, 0.95); }
+  .mesaj { margin: 0 0 14px; animation: gel 0.35s ease-out; }
+  .mesaj .kim { font-size: 11px; letter-spacing: 0.18em; margin-bottom: 4px; }
+  .mesaj .kim span { color: var(--muted); letter-spacing: 0; margin-left: 6px; }
+  .mesaj .metin { font-size: 15px; line-height: 1.5; }
+  .sen .kim { color: var(--me); } .sen .metin { color: #f1e3c8; }
+  .mergen .kim { color: var(--mergen); }
+  @keyframes gel { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  @media (max-width: 760px) { body { grid-template-columns: 1fr; grid-template-rows: 1fr 40%; } #yazi { border-left: 0; border-top: 1px solid var(--line); } }
+
+  /* --- İlk açılış sihirbazı --- */
+  #kurulum { position: fixed; inset: 0; z-index: 10; display: none; align-items: center; justify-content: center;
+    background: radial-gradient(circle at 50% 30%, rgba(20, 50, 70, 0.55), rgba(5, 8, 13, 0.98) 70%); padding: 16px; }
+  #kurulum.acik { display: flex; }
+  .kart { width: 100%; max-width: 640px; max-height: calc(100vh - 32px); overflow-y: auto; background: rgba(8, 18, 28, 0.94);
+    border: 1px solid var(--line); border-radius: 16px; padding: 28px 32px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6); }
+  .kart h1 { margin: 0 0 6px; font-size: 22px; font-weight: 600; letter-spacing: 0.04em; color: var(--text); }
+  .kart .alt { color: var(--muted); font-size: 14px; line-height: 1.55; margin: 0 0 20px; }
+  .noktalar { display: flex; gap: 6px; margin-bottom: 22px; }
+  .noktalar span { flex: 1; height: 3px; border-radius: 2px; background: rgba(127, 220, 255, 0.15); }
+  .noktalar span.dolu { background: var(--mergen); }
+  .secenekler { display: grid; gap: 10px; margin-bottom: 18px; }
+  .secenek { display: block; width: 100%; text-align: left; border: 1px solid var(--line); background: rgba(13, 29, 42, 0.7);
+    color: var(--text); border-radius: 12px; padding: 14px 16px; cursor: pointer; font: inherit; transition: border-color 0.2s, background 0.2s; }
+  .secenek:hover:not(.kapali) { border-color: rgba(127, 220, 255, 0.45); }
+  .secenek.secili { border-color: var(--mergen); background: rgba(20, 50, 70, 0.75); box-shadow: 0 0 0 1px var(--mergen) inset; }
+  .secenek.kapali { opacity: 0.45; cursor: default; }
+  .secenek .baslik { font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .secenek .aciklama { font-size: 13px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
+  .rozet { font-size: 10px; letter-spacing: 0.12em; padding: 2px 8px; border-radius: 10px; font-weight: 600;
+    background: rgba(127, 220, 255, 0.15); color: var(--mergen); }
+  .rozet.uyari { background: rgba(255, 180, 80, 0.15); color: #ffc070; }
+  .rozet.gri { background: rgba(255, 255, 255, 0.06); color: var(--muted); }
+  .dinle { margin-left: auto; border: 1px solid var(--line); background: transparent; color: var(--mergen); border-radius: 12px;
+    padding: 3px 10px; font: 12px "Segoe UI", sans-serif; cursor: pointer; }
+  .bilgi { font-size: 13px; line-height: 1.6; color: var(--muted); background: rgba(127, 220, 255, 0.05);
+    border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-bottom: 18px; }
+  .bilgi b { color: var(--text); font-weight: 600; }
+  .bilgi.uyari { background: rgba(255, 180, 80, 0.07); border-color: rgba(255, 180, 80, 0.3); }
+  .komut { display: flex; gap: 8px; margin: 8px 0; }
+  .komut code { flex: 1; font: 12px Consolas, "SF Mono", monospace; color: var(--text); background: #0d1d2a; border-radius: 6px;
+    padding: 8px 10px; overflow-x: auto; white-space: nowrap; }
+  .kart select { width: 100%; background: #0d1d2a; color: var(--text); border: 1px solid var(--line); border-radius: 8px;
+    padding: 8px 10px; font: 14px "Segoe UI", sans-serif; margin-bottom: 8px; }
+  .kart label.etiket { display: block; font-size: 11px; letter-spacing: 0.18em; color: var(--muted); margin: 14px 0 6px; }
+  .kart label.onay { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--text); margin: -4px 0 18px;
+    line-height: 1.5; cursor: pointer; }
+  .kart a { color: var(--mergen); }
+  .olcer { height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.06); overflow: hidden; margin: 4px 0 6px; }
+  .olcer div { height: 100%; width: 0; background: linear-gradient(90deg, #4fb8e0, #7fdcff); transition: width 0.08s; }
+  .dugmeler { display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px; flex-wrap: wrap; }
+  .dugme { border: 1px solid rgba(127, 220, 255, 0.4); background: rgba(20, 50, 70, 0.8); color: var(--mergen); border-radius: 10px;
+    padding: 9px 20px; font: 14px "Segoe UI", sans-serif; cursor: pointer; }
+  .dugme:hover:not(:disabled) { background: rgba(30, 70, 95, 0.95); }
+  .dugme:disabled { opacity: 0.4; cursor: default; }
+  .dugme.ana { background: #4fb8e0; color: #04121c; border-color: #4fb8e0; font-weight: 600; }
+  .dugme.ana:hover:not(:disabled) { background: #7fdcff; }
+  .dugme.ikincil { background: transparent; color: var(--muted); border-color: var(--line); }
+  .ozet { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; font-size: 14px; margin-bottom: 18px; }
+  .ozet dt { color: var(--muted); } .ozet dd { margin: 0; }
+  .adim { display: grid; grid-template-columns: 22px 1fr; gap: 4px 10px; margin-bottom: 14px; }
+  .adim .simge { font-size: 14px; line-height: 20px; text-align: center; color: var(--muted); }
+  .adim.bitti .simge { color: #6fe0a0; } .adim.hata .simge { color: #ff8a80; } .adim.suruyor .simge { color: var(--mergen); }
+  .adim .ad { font-size: 14px; } .adim.bekliyor .ad { color: var(--muted); }
+  .adim .detay { grid-column: 2; font-size: 12px; color: var(--muted); min-height: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .adim .olcer { grid-column: 2; margin: 2px 0 0; height: 6px; }
+  .olcer.belirsiz div { width: 30% !important; animation: kay 1.4s ease-in-out infinite; }
+  @keyframes kay { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+  .donen { display: inline-block; animation: don 1s linear infinite; }
+  @keyframes don { to { transform: rotate(360deg); } }
+  .hata-metni { color: #ff9a90; font-size: 13px; margin: 0 0 14px; line-height: 1.5; }
+  #arkaPlan { position: absolute; left: 18px; bottom: 18px; width: 260px; display: none; z-index: 2; font-size: 12px;
+    background: rgba(8, 18, 28, 0.92); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; color: var(--muted); }
+  #arkaPlan.acik { display: block; }
+  #arkaPlan .olcer { height: 5px; margin: 6px 0 0; }
+  #arkaPlan .dugmeler { justify-content: flex-start; margin-top: 8px; }
+  #arkaPlan .dugme { padding: 4px 10px; font-size: 12px; }
+</style>
+</head>
+<body>
+<div id="sahne">
+  <canvas id="tuval"></canvas>
+  <div id="ad">M · E · R · G · E · N</div>
+  <button id="kapat" title="Mergen'i tamamen kapatır">⏻ KAPAT</button>
+  <button id="ayarDugme">⚙ AYARLAR</button>
+  <div id="ayarlar">
+    <div class="satir">
+      <label>YAPAY ZEKÂ</label>
+      <select id="beyin"></select>
+    </div>
+    <div class="satir">
+      <label>MODEL</label>
+      <select id="model"></select>
+    </div>
+    <div class="satir">
+      <label class="kutucuk"><input id="tamYetki" type="checkbox"> TAM YETKİ</label>
+      <div class="not">Açıkken bilgisayarda onay sormadan komut çalıştırır (uygulama, Steam, dosya). Geri alınamayan işlerde yine sesli "evet" bekler.</div>
+    </div>
+    <div class="satir">
+      <label>DÜŞÜNME EFORU</label>
+      <select id="efor"></select>
+      <div class="not">Düşük efor en hızlısı; zor işlerde yükseltin.</div>
+    </div>
+    <div class="satir">
+      <label>SÖZ KESME (MERGEN KONUŞURKEN)</label>
+      <select id="arayaGirme"></select>
+      <div class="not">Kendi sesini duyup susuyorsa düşürün.</div>
+    </div>
+    <hr>
+    <div class="satir">
+      <label>SES SEVİYESİ <span id="seviyeYazi">1,0×</span></label>
+      <input id="seviye" type="range" min="0.3" max="3" step="0.1" value="1">
+    </div>
+    <div class="satir">
+      <label>KONUŞMA BİTTİ BEKLEMESİ <span id="sessizlikYazi">1,6 sn</span></label>
+      <input id="sessizlik" type="range" min="0.6" max="4" step="0.1" value="1.6">
+    </div>
+    <div class="satir">
+      <label>HOPARLÖR</label>
+      <select id="hoparlor"></select>
+    </div>
+    <div class="satir">
+      <label>MİKROFON</label>
+      <select id="mikrofon"></select>
+    </div>
+    <hr>
+    <div class="satir">
+      <label>KONUŞMA TANIMA</label>
+      <select id="whisperModel"></select>
+    </div>
+    <div class="satir">
+      <label>ÖZEL KELİMELER</label>
+      <textarea id="kelimeler" placeholder="virgülle ayırın: Erlik, plunge, ..."></textarea>
+      <div class="not" id="temelKelimeler"></div>
+    </div>
+    <button id="dene">▶ Sesi dene</button>
+    <div id="kaydedildi"></div>
+  </div>
+  <div id="durum">bağlanıyor</div>
+  <div id="arkaPlan"></div>
+</div>
+<div id="kurulum"><div class="kart" id="kurulumKart"></div></div>
+<aside id="yazi">
+  <h2>KONUŞMA</h2>
+  <div id="akis"></div>
+  <button id="asagi">↓ yeni mesajlar</button>
+</aside>
+<script>
+const canvas = document.getElementById("tuval");
+const ctx = canvas.getContext("2d");
+const durumYazi = document.getElementById("durum");
+const akis = document.getElementById("akis");
+const asagiDugme = document.getElementById("asagi");
+// Kullanıcı yukarı kaydırıp eski mesajları okuyorsa aşağı çekilmez; en alttaysa yeni mesajları takip eder.
+let enAltta = true;
+akis.addEventListener("scroll", () => {
+  enAltta = akis.scrollHeight - akis.scrollTop - akis.clientHeight < 40;
+  if (enAltta) asagiDugme.style.display = "none";
+});
+asagiDugme.addEventListener("click", () => { akis.scrollTop = akis.scrollHeight; enAltta = true; asagiDugme.style.display = "none"; });
+function takipEt() {
+  if (enAltta) akis.scrollTop = akis.scrollHeight;
+  else asagiDugme.style.display = "block";
+}
+
+const DURUMLAR = {
+  uyku:      { yazi: "uykuda — “Mergen uyan”", renk: [70, 120, 150],  hiz: 0.15, parlak: 0.35 },
+  dinliyor:  { yazi: "dinliyorum",            renk: [90, 210, 255],  hiz: 0.5,  parlak: 0.8 },
+  dusunuyor: { yazi: "düşünüyorum",           renk: [255, 180, 80],  hiz: 2.2,  parlak: 0.75 },
+  konusuyor: { yazi: "konuşuyorum",           renk: [140, 230, 255], hiz: 0.8,  parlak: 1.0 },
+};
+let durum = "uyku";
+let renk = [...DURUMLAR.uyku.renk];
+let hiz = DURUMLAR.uyku.hiz, parlak = DURUMLAR.uyku.parlak;
+let hedefSeviye = 0, seviye = 0, aci = 0, zaman = 0;
+let yazilan = null;  // Mergen'in o an yazılan mesajı
+
+function boyutla() {
+  const r = canvas.getBoundingClientRect(), d = window.devicePixelRatio || 1;
+  canvas.width = r.width * d; canvas.height = r.height * d; ctx.setTransform(d, 0, 0, d, 0, 0);
+}
+addEventListener("resize", boyutla); boyutla();
+
+function rgba(c, a) { return `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`; }
+
+function ciz(t) {
+  const dt = Math.min((t - zaman) / 1000, 0.05); zaman = t;
+  const d = DURUMLAR[durum];
+  for (let i = 0; i < 3; i++) renk[i] += (d.renk[i] - renk[i]) * Math.min(dt * 4, 1);
+  hiz += (d.hiz - hiz) * Math.min(dt * 3, 1); parlak += (d.parlak - parlak) * Math.min(dt * 3, 1);
+  // Seviye: hızlı yükselir, yavaş söner (sesin vurgusu topta görünsün).
+  seviye += (hedefSeviye - seviye) * Math.min(dt * (hedefSeviye > seviye ? 22 : 7), 1);
+  hedefSeviye *= Math.pow(0.02, dt);
+  aci += dt * hiz;
+
+  const w = canvas.clientWidth, h = canvas.clientHeight, cx = w / 2, cy = h / 2;
+  const R = Math.min(w, h) * 0.2;
+  const nefes = durum === "uyku" ? Math.sin(t / 1400) * 0.04 : 0;
+  const s = seviye;
+  ctx.clearRect(0, 0, w, h);
+
+  // Dış hale.
+  const hale = ctx.createRadialGradient(cx, cy, R * 0.2, cx, cy, R * (2.6 + s * 0.8));
+  hale.addColorStop(0, rgba(renk, 0.22 * parlak + s * 0.25));
+  hale.addColorStop(1, rgba(renk, 0));
+  ctx.fillStyle = hale; ctx.beginPath(); ctx.arc(cx, cy, R * (2.6 + s * 0.8), 0, Math.PI * 2); ctx.fill();
+
+  // Dalgalanan dalga halkası: ses yükseldikçe kenar dalgalanır.
+  for (let k = 0; k < 3; k++) {
+    ctx.beginPath();
+    const yaricap = R * (1.05 + k * 0.07 + nefes);
+    for (let i = 0; i <= 180; i++) {
+      const a = (i / 180) * Math.PI * 2;
+      const dalga = Math.sin(a * 6 + aci * (2 + k)) * 0.5 + Math.sin(a * 11 - aci * 3.1 + k) * 0.3 + Math.sin(a * 3 + t / 900) * 0.2;
+      const r = yaricap * (1 + dalga * (0.015 + s * 0.16) * (1 - k * 0.25));
+      const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    }
+    ctx.strokeStyle = rgba(renk, (0.55 - k * 0.15) * parlak + s * 0.3);
+    ctx.lineWidth = 1.6 - k * 0.4; ctx.stroke();
+  }
+
+  // Çekirdek.
+  const cekirdek = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * (0.95 + s * 0.12));
+  cekirdek.addColorStop(0, rgba([235, 250, 255], 0.55 * parlak + s * 0.45));
+  cekirdek.addColorStop(0.35, rgba(renk, 0.45 * parlak + s * 0.35));
+  cekirdek.addColorStop(1, rgba(renk, 0.02));
+  ctx.fillStyle = cekirdek; ctx.beginPath(); ctx.arc(cx, cy, R * (0.95 + s * 0.12 + nefes), 0, Math.PI * 2); ctx.fill();
+
+  // Dönen HUD halkaları (parçalı yaylar).
+  const halkalar = [
+    { r: 1.45, parca: 3, bosluk: 0.5, yon: 1, kalin: 2.2 },
+    { r: 1.62, parca: 8, bosluk: 0.35, yon: -1.4, kalin: 1.2 },
+    { r: 1.82, parca: 2, bosluk: 1.2, yon: 0.6, kalin: 3 },
+    { r: 2.05, parca: 24, bosluk: 0.12, yon: -0.3, kalin: 1 },
+  ];
+  for (const hl of halkalar) {
+    const adim = Math.PI * 2 / hl.parca;
+    ctx.strokeStyle = rgba(renk, 0.45 * parlak + s * 0.2); ctx.lineWidth = hl.kalin;
+    for (let i = 0; i < hl.parca; i++) {
+      const bas = aci * hl.yon + i * adim;
+      ctx.beginPath(); ctx.arc(cx, cy, R * hl.r * (1 + s * 0.04), bas, bas + adim * (1 - hl.bosluk)); ctx.stroke();
+    }
+  }
+
+  // Ölçek çizgileri: konuşurken dışarı doğru uzar (ekolayzer gibi).
+  const cizgi = 72;
+  for (let i = 0; i < cizgi; i++) {
+    const a = (i / cizgi) * Math.PI * 2 - aci * 0.25;
+    const titres = (Math.sin(i * 1.7 + t / 130) * 0.5 + 0.5);
+    const boy = R * (0.04 + s * 0.35 * titres);
+    const r1 = R * 2.18, r2 = r1 + boy;
+    ctx.beginPath(); ctx.moveTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1); ctx.lineTo(cx + Math.cos(a) * r2, cy + Math.sin(a) * r2);
+    ctx.strokeStyle = rgba(renk, 0.25 + s * 0.5); ctx.lineWidth = 1.5; ctx.stroke();
+  }
+
+  // Mergen'in cevabı konuştukça yazılır.
+  if (yazilan && yazilan.goster < yazilan.metin.length) {
+    yazilan.goster = Math.min(yazilan.metin.length, yazilan.goster + dt * (durum === "konusuyor" ? 16 : 60));
+    yazilan.el.textContent = yazilan.metin.slice(0, Math.floor(yazilan.goster));
+    takipEt();
+  }
+  requestAnimationFrame(ciz);
+}
+requestAnimationFrame(ciz);
+
+function kesildiIsaretle(kutu) {
+  if (!kutu || kutu.querySelector(".kesildi-not")) return;
+  const n = document.createElement("div"); n.className = "kesildi-not"; n.textContent = "— sözü kesildi";
+  kutu.appendChild(n);
+}
+function mesajEkle(kim, metin, saat, gecmis, kesildi) {
+  if (yazilan) { yazilan.el.textContent = yazilan.metin; yazilan = null; }
+  const kutu = document.createElement("div");
+  kutu.className = "mesaj " + (kim === "sen" ? "sen" : "mergen");
+  const baslik = document.createElement("div"); baslik.className = "kim";
+  baslik.textContent = kim === "sen" ? "BEY" : "MERGEN";
+  const s = document.createElement("span"); s.textContent = saat || ""; baslik.appendChild(s);
+  const govde = document.createElement("div"); govde.className = "metin";
+  kutu.append(baslik, govde); akis.appendChild(kutu);
+  if (kim === "sen" || gecmis) govde.textContent = metin; else yazilan = { el: govde, metin, goster: 0 };
+  if (kesildi) kesildiIsaretle(kutu);
+  takipEt();
+}
+
+document.getElementById("kapat").addEventListener("click", () => {
+  if (!confirm("Mergen tamamen kapansın mı?")) return;
+  fetch("/kapat", { method: "POST" }).finally(() => {
+    durumYazi.textContent = "kapatıldı"; durumYazi.style.color = "#a55";
+    setTimeout(() => window.close(), 600);
+  });
+});
+
+// --- Ayarlar paneli: değişiklik anında uygulanır ve ayar.json'a kaydedilir. ---
+const ayarDugme = document.getElementById("ayarDugme"), ayarPanel = document.getElementById("ayarlar");
+const seviyeKaydirici = document.getElementById("seviye"), seviyeYazi = document.getElementById("seviyeYazi");
+const sessizlikKaydirici = document.getElementById("sessizlik"), sessizlikYazi = document.getElementById("sessizlikYazi");
+const hoparlorSec = document.getElementById("hoparlor"), mikrofonSec = document.getElementById("mikrofon");
+const kaydedildi = document.getElementById("kaydedildi");
+const modelSec = document.getElementById("model"), eforSec = document.getElementById("efor");
+const whisperSec = document.getElementById("whisperModel"), kelimeKutu = document.getElementById("kelimeler");
+const arayaGirme = document.getElementById("arayaGirme");
+const beyinSec = document.getElementById("beyin"), tamYetki = document.getElementById("tamYetki");
+// Değer → görünen ad sözlüğünden seçim listesi.
+function doldurSozluk(secim, sozluk, secili) {
+  secim.innerHTML = "";
+  for (const [deger, ad] of Object.entries(sozluk)) {
+    const o = document.createElement("option"); o.value = deger; o.textContent = ad; o.selected = deger === secili; secim.appendChild(o);
+  }
+}
+
+function sessizlikGoster(v) { sessizlikYazi.textContent = Number(v).toFixed(1).replace(".", ",") + " sn"; }
+function seviyeGoster(v) { seviyeYazi.textContent = Number(v).toFixed(1).replace(".", ",") + "×"; }
+function doldur(secim, adlar, secili) {
+  secim.innerHTML = "";
+  for (const ad of adlar) {
+    const o = document.createElement("option"); o.value = ad; o.textContent = ad; o.selected = ad === secili; secim.appendChild(o);
+  }
+}
+function ayarlariGoster(a) {
+  seviyeKaydirici.value = a.ses_seviyesi; seviyeGoster(a.ses_seviyesi);
+  sessizlikKaydirici.value = a.sessizlik_suresi; sessizlikGoster(a.sessizlik_suresi);
+  doldur(hoparlorSec, a.hoparlorler, a.hoparlor); doldur(mikrofonSec, a.mikrofonlar, a.mikrofon);
+  doldurSozluk(modelSec, a.modeller, a.model); doldurSozluk(eforSec, a.eforlar, a.efor);
+  doldurSozluk(whisperSec, a.whisper_modeller, a.whisper_model);
+  if (document.activeElement !== kelimeKutu) kelimeKutu.value = a.kelimeler;
+  document.getElementById("temelKelimeler").textContent = "Zaten tanıdıkları: " + a.temel_kelimeler;
+  doldurSozluk(arayaGirme, a.araya_girme_secenekleri, a.araya_girme);
+  doldurSozluk(beyinSec, a.beyinler, a.beyin); tamYetki.checked = a.tam_yetki;
+}
+async function ayarGonder(degisiklik) {
+  kaydedildi.textContent = "kaydediliyor…";
+  const cevap = await fetch("/ayarlar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(degisiklik) });
+  ayarlariGoster(await cevap.json());
+  kaydedildi.textContent = "kaydedildi ✓";
+  setTimeout(() => { kaydedildi.textContent = ""; }, 1500);
+}
+ayarDugme.addEventListener("click", async () => {
+  const acik = ayarPanel.classList.toggle("acik"); ayarDugme.classList.toggle("acik", acik);
+  if (acik) ayarlariGoster(await (await fetch("/ayarlar")).json());
+});
+seviyeKaydirici.addEventListener("input", () => seviyeGoster(seviyeKaydirici.value));
+seviyeKaydirici.addEventListener("change", () => ayarGonder({ ses_seviyesi: Number(seviyeKaydirici.value) }));
+sessizlikKaydirici.addEventListener("input", () => sessizlikGoster(sessizlikKaydirici.value));
+sessizlikKaydirici.addEventListener("change", () => ayarGonder({ sessizlik_suresi: Number(sessizlikKaydirici.value) }));
+hoparlorSec.addEventListener("change", () => ayarGonder({ hoparlor: hoparlorSec.value }));
+mikrofonSec.addEventListener("change", () => ayarGonder({ mikrofon: mikrofonSec.value }));
+modelSec.addEventListener("change", () => ayarGonder({ model: modelSec.value }));
+eforSec.addEventListener("change", () => ayarGonder({ efor: eforSec.value }));
+whisperSec.addEventListener("change", () => ayarGonder({ whisper_model: whisperSec.value }));
+kelimeKutu.addEventListener("change", () => ayarGonder({ kelimeler: kelimeKutu.value }));
+arayaGirme.addEventListener("change", () => ayarGonder({ araya_girme: arayaGirme.value }));
+beyinSec.addEventListener("change", () => ayarGonder({ beyin: beyinSec.value }));
+tamYetki.addEventListener("change", () => {
+  if (tamYetki.checked && !confirm("Tam yetkide yapay zekâ bilgisayarınızda onay sormadan komut çalıştırır. Açılsın mı?")) {
+    tamYetki.checked = false; return;
+  }
+  ayarGonder({ tam_yetki: tamYetki.checked });
+});
+document.getElementById("dene").addEventListener("click", () => fetch("/dene", { method: "POST" }));
+
+// --- İlk açılış sihirbazı: platform ve ekran kartı kendiliğinden tespit edilir, kullanıcı sadece tercih yapar. ---
+const kurulumKutu = document.getElementById("kurulum"), kurulumKart = document.getElementById("kurulumKart");
+const arkaPlanKutu = document.getElementById("arkaPlan");
+const SAYFALAR = ["hosgeldin", "beyin", "ses", "tanima", "yetki", "aygitlar", "ozet"];
+const WHISPER_ADLARI = { small: "Hızlı", medium: "Dengeli", "large-v3-turbo": "En doğru" };
+const WHISPER_ACIKLAMA = {
+  small: "Günlük konuşmayı rahatça anlar ve hemen cevap veririm. Çoğu kişi için en iyi seçim.",
+  medium: "Hızlı konuşmayı, teknik ve yabancı kelimeleri daha iyi anlarım; cevabım biraz gecikir.",
+  "large-v3-turbo": "En az yanıldığım seçenek. Güçlü bir bilgisayar ister; yavaş bilgisayarlarda her cümlenizden sonra birkaç saniye bekletebilirim.",
+};
+let kb = null;  // /kurulum cevabı: donanım, seçenekler, boyutlar
+let sayfa = 0, ilerleme = null, ilerlemeEkranda = false, kapanisPlanli = false, calan = null;
+const secim = { beyin: "claude", ses_motoru: "", xtts_lisans: false, whisper_model: "small", tam_yetki: false, mikrofon: "", hoparlor: "" };
+const beyinDurumu = {}, denetleniyor = {};
+
+function el(etiket, ozellik = {}, ...cocuklar) {
+  const e = document.createElement(etiket);
+  for (const [k, v] of Object.entries(ozellik)) {
+    if (k === "class") e.className = v;
+    else if (k === "html") e.innerHTML = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else if (k === "checked" || k === "selected" || k === "disabled") e[k] = !!v;
+    else if (v != null && v !== false) e.setAttribute(k, v);
+  }
+  for (const c of cocuklar.flat()) if (c != null && c !== false) e.append(c instanceof Node ? c : String(c));
+  return e;
+}
+function gb(b) { return b >= 1e8 ? (b / 1e9).toFixed(1).replace(".", ",") + " GB" : Math.round(b / 1e6) + " MB"; }
+function postla(yol, govde = {}) { return fetch(yol, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(govde) }); }
+
+async function kurulumBaslat() {
+  kb = await (await fetch("/kurulum")).json();
+  secim.ses_motoru = kb.donanim.hizlandirma === "cpu" ? "piper" : "xtts";
+  secim.mikrofon = kb.mikrofon; secim.hoparlor = kb.hoparlor;
+  ilerleme = kb.ilerleme;
+  if (kb.gerekli) {
+    kurulumKutu.classList.add("acik");
+    if (ilerleme.durum === "kuruluyor" || ilerleme.durum === "hata") ilerlemeCiz(); else sayfaCiz();
+  } else arkaPlanCiz();
+}
+
+function sayfaCiz() {
+  const ad = SAYFALAR[sayfa];
+  if (ad !== "aygitlar") postla("/kurulum/mikrofon", { dur: true });
+  kurulumKart.replaceChildren(
+    el("div", { class: "noktalar" }, SAYFALAR.map((_, i) => el("span", { class: i <= sayfa ? "dolu" : "" }))),
+    ...SAYFA[ad]().filter((parca) => parca != null));
+}
+function ileriGeri(ileriOlur = true, ileriYazi = "İleri") {
+  return el("div", { class: "dugmeler" },
+    sayfa > 0 ? el("button", { class: "dugme ikincil", onclick: () => { sayfa--; sayfaCiz(); } }, "Geri") : null,
+    el("button", { class: "dugme ana", disabled: !ileriOlur, onclick: () => { sayfa++; sayfaCiz(); } }, ileriYazi));
+}
+function secenek(secili, baslik, aciklama, tikla, kapali = false) {
+  return el("div", { class: "secenek" + (secili ? " secili" : "") + (kapali ? " kapali" : ""), onclick: kapali ? null : tikla },
+    el("div", { class: "baslik" }, baslik), aciklama ? el("div", { class: "aciklama" }, aciklama) : null);
+}
+function rozet(yazi, tur = "") { return el("span", { class: "rozet " + tur }, yazi); }
+function komutKutu(metin) {
+  return el("div", { class: "komut" }, el("code", {}, metin),
+    el("button", { class: "dugme ikincil", onclick: (e) => { navigator.clipboard.writeText(metin); e.target.textContent = "Kopyalandı"; } }, "Kopyala"));
+}
+function dinle(ad) {
+  return el("button", { class: "dinle", onclick: (e) => {
+    e.stopPropagation(); if (calan) calan.pause(); calan = new Audio(`/ornek/${ad}.mp3`); calan.play();
+  } }, "▶ Dinle");
+}
+
+async function beyinKontrol(ad) {
+  if (denetleniyor[ad]) return;
+  denetleniyor[ad] = true;
+  beyinDurumu[ad] = await (await postla("/kurulum/beyin", { ad })).json();
+  denetleniyor[ad] = false;
+  if (SAYFALAR[sayfa] === "beyin" && !ilerlemeEkranda) sayfaCiz();
+}
+function beyinAciklama(ad) {
+  const d = beyinDurumu[ad];
+  if (!d) return "Bilgisayarınızda aranıyor…";
+  if (d.bulundu && d.giris) return "Hazır ✓ Bu bilgisayarda kurulu ve hesabınızla giriş yapılmış" + (d.hesap ? ` (${d.hesap})` : "") + ".";
+  return d.bulundu ? "Bu bilgisayarda kurulu, ama henüz hesabınızla giriş yapılmamış." : "Bu bilgisayarda henüz kurulu değil.";
+}
+function beyinYardim(d) {
+  if (!d || (d.bulundu && d.giris)) return null;
+  const parca = [];
+  if (!d.bulundu) parca.push(el("div", {}, `1. Kurmak için ${d.kabuk} uygulamasını açın ve şu komutu yapıştırıp Enter'a basın:`), komutKutu(d.kurulum));
+  parca.push(el("div", {}, `${d.bulundu ? 1 : 2}. Ardından şu komutla aboneliğinizle giriş yapın; tarayıcınız açılacak:`), komutKutu(d.giris_komutu));
+  return el("div", { class: "bilgi uyari" }, ...parca, el("div", { class: "dugmeler" },
+    el("button", { class: "dugme", onclick: () => { delete beyinDurumu[secim.beyin]; sayfaCiz(); } }, "Yaptım, tekrar bak")));
+}
+
+const SAYFA = {
+  hosgeldin: () => {
+    const d = kb.donanim;
+    const kart = d.ekran_karti ? `${d.ekran_karti} ekran kartı` : "uygun ekran kartı bulunamadı, işlemciyle çalışacağım";
+    return [el("h1", {}, "Hoş geldiniz beyim."),
+      el("p", { class: "alt" }, "Ben Mergen, sesli asistanınız. Kurulum birkaç dakika sürecek: size birkaç soru soracağım, gerisini ben halledeceğim."),
+      el("div", { class: "bilgi" }, el("b", {}, "Bilgisayarınızı tanıdım: "),
+        `${d.isletim} · ${kart} · diskte ${gb(d.bos_alan)} boş alan`),
+      ileriGeri(true, "Başlayalım")];
+  },
+  beyin: () => {
+    if (!beyinDurumu[secim.beyin]) beyinKontrol(secim.beyin);
+    const d = beyinDurumu[secim.beyin];
+    return [el("h1", {}, "Hangi yapay zekâyla çalışayım?"),
+      el("p", { class: "alt" }, "Sorularınızı düşünüp cevaplayan ve bilgisayarınızda işleri yapan beynim bu olacak. Ek bir ücret ya da API anahtarı gerekmez: zaten sahip olduğunuz aboneliği kullanırım."),
+      el("div", { class: "secenekler" }, kb.beyinler.map((b) => secenek(secim.beyin === b.ad && !b.yakinda,
+        [b.baslik, b.yakinda ? rozet("YAKINDA", "gri") : null],
+        b.yakinda ? "Yakında desteklenecek." : beyinAciklama(b.ad), () => { secim.beyin = b.ad; sayfaCiz(); }, b.yakinda))),
+      beyinYardim(d), ileriGeri(!!(d && d.bulundu && d.giris))];
+  },
+  ses: () => {
+    const h = kb.donanim.hizlandirma, cpu = h === "cpu";
+    const hiz = cpu ? "Bilgisayarınızda uygun bir ekran kartı bulunamadı; bu sesle her cevaba başlamam birkaç saniye gecikebilir."
+      : h === "mps" ? "Mac'inizin çipinde çalışır; cevaba başlamam bir iki saniye gecikebilir."
+      : "Ekran kartınız sayesinde gecikmeden konuşurum.";
+    return [el("h1", {}, "Sesim nasıl olsun?"),
+      el("p", { class: "alt" }, "Size cevap verirken bu sesle konuşacağım. İkisini de dinleyip karar verebilirsiniz."),
+      el("div", { class: "secenekler" },
+        secenek(secim.ses_motoru === "xtts", ["Doğal ses", cpu ? rozet("YAVAŞ OLABİLİR", "uyari") : rozet("ÖNERİLEN"), dinle("xtts")],
+          `İnsan sesine çok yakın; vurgulu ve akıcı konuşurum. ${hiz} İndirme boyutu ${gb(kb.boyutlar.xtts)}. İndirme sürerken hafif sesle çalışmaya başlarım, bitince bu sese kendiliğimden geçerim.`,
+          () => { secim.ses_motoru = "xtts"; sayfaCiz(); }),
+        secenek(secim.ses_motoru === "piper", ["Hafif ses", cpu ? rozet("ÖNERİLEN") : null, dinle("piper")],
+          `Her bilgisayarda anında konuşurum, ama sesim daha robotik olur. Eski ya da güçsüz bilgisayarlar için en iyisi. İndirme boyutu ${gb(kb.boyutlar.piper)}.`,
+          () => { secim.ses_motoru = "piper"; sayfaCiz(); })),
+      secim.ses_motoru === "xtts" ? el("label", { class: "onay" },
+        el("input", { type: "checkbox", checked: secim.xtts_lisans, onchange: (e) => { secim.xtts_lisans = e.target.checked; sayfaCiz(); } }),
+        el("span", { html: 'Doğal ses modelinin <a href="https://tts-hub.github.io/cpml" target="_blank">lisansını</a> okudum ve kabul ediyorum: yalnızca kişisel, ticari olmayan kullanım.' })) : null,
+      ileriGeri(secim.ses_motoru === "piper" || secim.xtts_lisans)];
+  },
+  tanima: () => [el("h1", {}, "Sizi ne kadar iyi anlayayım?"),
+    el("p", { class: "alt" }, "Söylediklerinizi yazıya çeviren konuşma tanıma doğrudan bilgisayarınızda çalışır; sesiniz hiçbir yere gönderilmez. Daha iyi anlayan seçenekler daha büyüktür ve daha güçlü bir bilgisayar ister."),
+    el("div", { class: "secenekler" }, Object.keys(kb.whisper_modeller).map((ad) => secenek(secim.whisper_model === ad,
+      [WHISPER_ADLARI[ad] || ad, ad === "small" ? rozet("ÖNERİLEN") : null],
+      `${WHISPER_ACIKLAMA[ad] || ""} İndirme boyutu ${gb(kb.boyutlar.whisper[ad])}.`, () => { secim.whisper_model = ad; sayfaCiz(); }))),
+    ileriGeri()],
+  yetki: () => [el("h1", {}, "Bilgisayarınızda ne kadar serbest olayım?"),
+    el("p", { class: "alt" }, "Bunu sonradan ayarlardan değiştirebilirsiniz."),
+    el("div", { class: "secenekler" },
+      secenek(!secim.tam_yetki, ["Sınırlı", rozet("GÜVENLİ")],
+        "Sohbet ederim, sorularınızı cevaplarım, dosyalarınızı okuyup arayabilirim. Bilgisayarınızda hiçbir şeyi değiştirmem, program çalıştırmam.",
+        () => { secim.tam_yetki = false; sayfaCiz(); }),
+      secenek(secim.tam_yetki, ["Tam yetki", rozet("GÜÇLÜ", "uyari")],
+        "Sizin yerinize bilgisayarı kullanırım: program ve oyun açarım, müzik çalarım, dosya düzenlerim. Bunları her seferinde onay sormadan yaparım; ama silme, satın alma, mesaj gönderme gibi geri alınamayan işlerden önce mutlaka sesli \"evet\" demenizi beklerim.",
+        () => { secim.tam_yetki = true; sayfaCiz(); })),
+    ileriGeri()],
+  aygitlar: () => {
+    if (!kb.mikrofonlar.includes(secim.mikrofon)) secim.mikrofon = kb.mikrofonlar[0] || "";
+    if (!kb.hoparlorler.includes(secim.hoparlor)) secim.hoparlor = kb.hoparlorler[0] || "";
+    postla("/kurulum/mikrofon", { ad: secim.mikrofon });
+    const liste = (adlar, secili) => adlar.map((a) => el("option", { value: a, selected: a === secili }, a));
+    return [el("h1", {}, "Mikrofon ve hoparlör"),
+      el("p", { class: "alt" }, "Bilgisayarınızın varsayılan mikrofonu ve hoparlörü seçili. Bir şey söyleyin: aşağıdaki çubuk hareket ediyorsa sizi duyuyorum. \"Hoparlörü dene\"ye basınca kısa bir çan sesi duymalısınız."),
+      el("label", { class: "etiket" }, "MİKROFON"),
+      el("select", { onchange: (e) => { secim.mikrofon = e.target.value; postla("/kurulum/mikrofon", { ad: secim.mikrofon }); } },
+        liste(kb.mikrofonlar, secim.mikrofon)),
+      el("div", { class: "olcer" }, el("div", { id: "mikOlcer" })),
+      el("label", { class: "etiket" }, "HOPARLÖR"),
+      el("select", { onchange: (e) => { secim.hoparlor = e.target.value; } }, liste(kb.hoparlorler, secim.hoparlor)),
+      el("div", { class: "dugmeler", style: "justify-content:flex-start" },
+        el("button", { class: "dugme", onclick: () => postla("/kurulum/hoparlor", { ad: secim.hoparlor }) }, "♪ Hoparlörü dene")),
+      ileriGeri()];
+  },
+  ozet: () => {
+    const boyut = kb.boyutlar.piper + kb.boyutlar.whisper[secim.whisper_model] + (secim.ses_motoru === "xtts" ? kb.boyutlar.xtts : 0);
+    const yetmez = boyut + 5e8 > kb.donanim.bos_alan;
+    const satir = (a, b) => [el("dt", {}, a), el("dd", {}, b)];
+    return [el("h1", {}, "Her şey hazır beyim."),
+      el("p", { class: "alt" }, secim.ses_motoru === "xtts"
+        ? "\"Kur\"a bastığınızda gerekenleri indirip kuracağım. Birkaç dakika içinde konuşmaya başlarız; doğal ses ise siz beni kullanırken arka planda indirilmeye devam eder."
+        : "\"Kur\"a bastığınızda gerekenleri indirip kuracağım. Birkaç dakika içinde konuşmaya başlarız."),
+      el("dl", { class: "ozet" },
+        satir("Yapay zekâ", kb.beyinler.find((b) => b.ad === secim.beyin).baslik),
+        satir("Ses", secim.ses_motoru === "xtts" ? "Doğal ses" : "Hafif ses"),
+        satir("Konuşma tanıma", WHISPER_ADLARI[secim.whisper_model]),
+        satir("Yetki", secim.tam_yetki ? "Tam yetki" : "Sınırlı"),
+        satir("Mikrofon", secim.mikrofon || "Varsayılan"), satir("Hoparlör", secim.hoparlor || "Varsayılan"),
+        satir("Toplam indirme", `yaklaşık ${gb(boyut)} (diskinizde ${gb(kb.donanim.bos_alan)} boş alan var)`)),
+      yetmez ? el("p", { class: "hata-metni" }, "Diskte yeterli yer yok; biraz yer açıp tekrar deneyin.") : null,
+      el("div", { class: "dugmeler" },
+        el("button", { class: "dugme ikincil", onclick: () => { sayfa--; sayfaCiz(); } }, "Geri"),
+        el("button", { class: "dugme ana", disabled: yetmez, onclick: kur }, "Kur"))];
+  },
+};
+
+async function kur() {
+  const s = await (await postla("/kurulum/baslat", secim)).json();
+  if (s.hata && !s.adimlar) { alert(s.hata); return; }
+  ilerleme = s; ilerlemeCiz();
+}
+
+function kurulumIlerleme(s) {
+  ilerleme = s;
+  if (ilerlemeEkranda) ilerlemeCiz();
+  arkaPlanCiz();
+}
+function olcer(adim) {
+  return el("div", { class: "olcer" + (adim.yuzde == null ? " belirsiz" : "") },
+    el("div", { style: adim.yuzde != null ? `width:${adim.yuzde}%` : null }));
+}
+function adimCiz(a) {
+  const simge = { bekliyor: "○", suruyor: el("span", { class: "donen" }, "◌"), bitti: "✓", hata: "✕" }[a.durum];
+  return el("div", { class: "adim " + a.durum }, el("div", { class: "simge" }, simge),
+    el("div", { class: "ad" }, a.ad + (a.arka_plan ? " (siz kullanırken arka planda)" : "")),
+    a.durum === "suruyor" ? olcer(a) : null,
+    a.detay ? el("div", { class: "detay", title: a.detay }, a.detay) : null);
+}
+function hataDugmeleri(s) {
+  const arkaPlanHatasi = s.adimlar.some((a) => a.durum === "hata" && a.arka_plan);
+  return el("div", { class: "dugmeler" },
+    arkaPlanHatasi ? el("button", { class: "dugme ikincil", onclick: () => postla("/kurulum/piper") }, "Hafif sesle devam et") : null,
+    el("button", { class: "dugme ana", onclick: () => postla("/kurulum/baslat") }, "Tekrar dene"));
+}
+function ilerlemeCiz() {
+  ilerlemeEkranda = true;
+  postla("/kurulum/mikrofon", { dur: true });
+  const s = ilerleme;
+  const temel = s.adimlar.filter((a) => !a.arka_plan);
+  const temelBitti = temel.length > 0 && temel.every((a) => a.durum === "bitti");
+  const arkadaSuren = s.adimlar.some((a) => a.arka_plan && a.durum !== "bitti");
+  const baslik = s.durum === "hata" ? "Bir sorun çıktı beyim." : temelBitti ? "Hazırım beyim." : "Kuruluyor…";
+  const aciklama = temelBitti
+    ? (arkadaSuren ? "Açılıyorum. Doğal ses arka planda indirilmeye devam ediyor; bitince o sese kendiliğimden geçerim." : "Açılıyorum.")
+    : "İnternet bağlantınız koparsa kaldığım yerden devam ederim. Pencereyi kapatsanız bile bir sonraki açılışta sürdürürüm.";
+  const parca = [el("h1", {}, baslik), el("p", { class: "alt" }, aciklama), ...s.adimlar.map(adimCiz)];
+  if (s.durum === "hata") parca.push(el("p", { class: "hata-metni" }, s.hata), hataDugmeleri(s));
+  kurulumKart.replaceChildren(...parca);
+  if (temelBitti && s.durum !== "hata" && !kapanisPlanli) {
+    kapanisPlanli = true;
+    setTimeout(() => { kurulumKutu.classList.remove("acik"); ilerlemeEkranda = false; arkaPlanCiz(); }, 2500);
+  }
+}
+// Sihirbaz kapandıktan sonra doğal ses inerken sol altta küçük bir gösterge.
+function arkaPlanCiz() {
+  const s = ilerleme;
+  if (!s || kurulumKutu.classList.contains("acik")) return;
+  const adim = s.adimlar.find((a) => a.arka_plan && a.durum !== "bitti");
+  if (s.durum === "bitti") {
+    if (arkaPlanKutu.classList.contains("acik")) {
+      arkaPlanKutu.replaceChildren("Doğal ses hazır ✓");
+      setTimeout(() => arkaPlanKutu.classList.remove("acik"), 4000);
+    }
+    return;
+  }
+  if (!s.arka_plan || !adim) return;
+  arkaPlanKutu.classList.add("acik");
+  arkaPlanKutu.replaceChildren(
+    el("div", {}, s.durum === "hata" ? "Doğal ses kurulamadı: " + s.hata : adim.ad + (adim.yuzde != null ? ` · %${Math.round(adim.yuzde)}` : "…")),
+    s.durum === "hata" ? hataDugmeleri(s) : olcer(adim));
+}
+kurulumBaslat();
+
+function baglan() {
+  const kaynak = new EventSource("/olaylar");
+  kaynak.onmessage = (e) => {
+    const olay = JSON.parse(e.data);
+    if (olay.tip === "durum" && DURUMLAR[olay.durum]) {
+      durum = olay.durum; durumYazi.textContent = DURUMLAR[durum].yazi;
+      durumYazi.style.color = rgba(DURUMLAR[durum].renk, 0.85);
+    } else if (olay.tip === "seviye") {
+      hedefSeviye = Math.max(hedefSeviye, Math.min(1, olay.deger));
+    } else if (olay.tip === "mesaj") {
+      mesajEkle(olay.kim, olay.metin, olay.zaman, olay.gecmis, olay.kesildi);
+    } else if (olay.tip === "kesildi") {
+      // Yazılmakta olan Mergen mesajı orada kalır (söylenmeyen kısım yazılmaz).
+      if (yazilan) { yazilan.el.textContent = yazilan.metin.slice(0, Math.floor(yazilan.goster)) + "…"; yazilan = null; }
+      kesildiIsaretle([...akis.querySelectorAll(".mesaj.mergen")].pop());
+    } else if (olay.tip === "kurulum") {
+      kurulumIlerleme(olay);
+    } else if (olay.tip === "mikseviye") {
+      const o = document.getElementById("mikOlcer");
+      if (o) o.style.width = Math.round(olay.deger * 100) + "%";
+    }
+  };
+  kaynak.onerror = () => { durumYazi.textContent = "bağlantı yok — Mergen kapalı mı?"; durumYazi.style.color = "#a55"; };
+}
+baglan();
+</script>
+</body>
+</html>

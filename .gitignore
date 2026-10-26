@@ -218,3 +218,17 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# --- Mergen ---
+# Kullanıcı verisi (ayarlar, kayıtlar, modeller) repoda değil, veri klasöründe durur; yine de yanlışlıkla girmesin.
+ayar.json
+notlar.md
+*.log
+modeller/
+models/
+*.onnx
+*.pth
+*.wav
+*.mp3
+.claude/
+!mergen/ornekler/*.mp3

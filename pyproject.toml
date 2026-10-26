@@ -1,0 +1,35 @@
+[project]
+name = "mergen"
+version = "0.1.0"
+description = "Türklerin JARVIS'i: Türkçe konuşan, sesle yönetilen yapay zekâ asistanı."
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "Kayahan Albayrak" }]
+requires-python = ">=3.10,<3.14"
+dependencies = [
+    "numpy",
+    "sounddevice",
+    "faster-whisper>=1.1",
+]
+
+[project.optional-dependencies]
+# Doğal ses (XTTS v2). Model lisansı CPML: ticari olmayan kullanım; kurulumda kullanıcıya onaylatılır.
+xtts = ["coqui-tts>=0.27", "torch", "torchaudio"]
+# Hafif ses (Piper).
+piper = ["piper-tts>=1.3"]
+
+[project.scripts]
+mergen = "mergen.__main__:run"
+
+[project.gui-scripts]
+mergen-pencere = "mergen.__main__:run"
+
+[project.urls]
+Homepage = "https://github.com/kyhnlbyrk/mergen"
+
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["mergen"]
