@@ -9,6 +9,7 @@ import fnmatch
 import importlib
 import importlib.util
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -34,6 +35,8 @@ SIZES = {
     "xtts": 1.87 * GB,
     "coqui": 0.3 * GB,
     "torch": {"cuda": 3.2 * GB, "mps": 0.8 * GB, "cpu": 0.8 * GB},
+    # NVIDIA kartında Whisper'ın istediği CUDA kitaplıkları (PyTorch kurulmayacaksa; kurulacaksa onunla gelir).
+    "cuda": 1.0 * GB,
     "whisper": {"small": 0.47 * GB, "medium": 1.53 * GB, "large-v3-turbo": 1.62 * GB},
 }
 WHISPER_REPOS = {
@@ -84,7 +87,16 @@ def detect_hardware() -> dict:
 
 
 def installed(module: str) -> bool:
-    return importlib.util.find_spec(module) is not None
+    try:
+        return importlib.util.find_spec(module) is not None
+    except ModuleNotFoundError:  # üst paket yok ("nvidia.cudnn" için "nvidia")
+        return False
+
+
+def cuda_libraries_needed(hardware: dict, xtts: bool) -> bool:
+    """NVIDIA kartı var ama Whisper'ın istediği CUDA kitaplıklarını getirecek PyTorch kurulmayacak: ayrıca indirilir."""
+    return hardware["hizlandirma"] == "cuda" and not xtts and not installed("torch") \
+        and not (installed("nvidia.cublas") and installed("nvidia.cudnn"))
 
 
 def _uv() -> str | None:
@@ -108,11 +120,30 @@ def pip_install(arguments: list[str], report) -> None:
         line = line.strip()
         if line:
             tail = (tail + [line])[-20:]
-            report(detail=line[:100])
+            detail = _package_line(line)
+            if detail:
+                report(detail=detail)
     if process.wait() != 0:
         log("paket kurulamadı:\n  " + "\n  ".join(tail))
         raise RuntimeError("paket kurulamadı: " + (tail[-1] if tail else "bilinmeyen hata"))
     importlib.invalidate_caches()
+
+
+def _package_line(line: str) -> str | None:
+    """pip / uv çıktısının ekranda gösterilecek Türkçe hâli ("torch indiriliyor (2,5 GB)"); gösterilmeyecekse None."""
+    match = re.match(r"(?:Downloading|Collecting)\s+([A-Za-z0-9_.\-]+?)(?:-\d[^\s]*)?(?:\s+\(([\d.]+)\s*(MiB|GiB|MB|GB|kB)\))?$",
+                     line)
+    if match:
+        name, size, unit = match.groups()
+        if size:
+            gb = float(size) / (1024 if unit in ("MiB", "MB") else 1 if unit in ("GiB", "GB") else 1024 * 1024)
+            return f"{name} indiriliyor ({_gb(gb * GB)})"
+        return f"{name} indiriliyor"
+    if line.startswith(("Installing", "Prepared", "Building")):
+        return "Kuruluyor…"
+    if line.startswith(("Installed", "Successfully installed")):
+        return "Kuruldu"
+    return None
 
 
 def _wanted(name: str, allow: list[str] | None, ignore: list[str] | None) -> bool:
@@ -243,7 +274,8 @@ class Setup:
         # Uyanmayı dinleyen hızlı model (kulak.py) her seçimde indirilir.
         whisper = {name: size + (SIZES["whisper"][WAKE_MODEL] if name != WAKE_MODEL else 0)
                    for name, size in SIZES["whisper"].items()}
-        return {"piper": SIZES["piper"], "xtts": xtts, "whisper": whisper}
+        return {"piper": SIZES["piper"], "xtts": xtts, "whisper": whisper,
+                "cuda": SIZES["cuda"] if cuda_libraries_needed(self.hardware, xtts=False) else 0}
 
     def progress(self) -> dict:
         background = self.status in ("kuruluyor", "hata") and self.core_ready.is_set()
@@ -305,6 +337,8 @@ class Setup:
             self.steps.append(self._step("piper_paket", "Hafif ses için gerekli yazılım kuruluyor"))
         self.steps += [self._step("piper", "Hafif ses indiriliyor"),
                        self._step("whisper", "Konuşma tanıma indiriliyor")]
+        if cuda_libraries_needed(self.hardware, xtts):
+            self.steps.append(self._step("cuda", "Konuşma tanıma ekran kartı için hazırlanıyor"))
         if xtts:
             if not installed("torch"):
                 self.steps.append(self._step("torch", "Doğal ses için gerekli yazılım kuruluyor (1/2)", background=True))
@@ -374,6 +408,8 @@ class Setup:
 
     def _do(self, step: dict) -> None:
         step["durum"] = "suruyor"
+        # Yüzdesi bilinmeyen adımlarda (paket kurulumu) ekran geçen süreyi gösterir.
+        step["basladi"] = time.time()
         self._push(force=True)
         action = getattr(self, f"_install_{step['id']}")
         for attempt in range(DOWNLOAD_ATTEMPTS):
@@ -413,6 +449,8 @@ class Setup:
 
     def _install_alan(self, report) -> None:
         need = self.sizes()["piper"] + self.sizes()["whisper"][SETTINGS["whisper_model"]]
+        if cuda_libraries_needed(self.hardware, SETTINGS["ses_motoru"] == "xtts"):
+            need += SIZES["cuda"]
         if SETTINGS["ses_motoru"] == "xtts" and not SETTINGS["xtts_kurulu"]:
             need += self.sizes()["xtts"]
         free = shutil.disk_usage(DATA).free
@@ -431,6 +469,9 @@ class Setup:
         if SETTINGS["whisper_model"] != WAKE_MODEL:
             hf_download(WHISPER_REPOS[WAKE_MODEL], report, allow=WHISPER_FILES)
         hf_download(WHISPER_REPOS[SETTINGS["whisper_model"]], report, allow=WHISPER_FILES)
+
+    def _install_cuda(self, report) -> None:
+        pip_install(["nvidia-cublas-cu12", "nvidia-cudnn-cu12>=9,<10"], report)
 
     def _install_torch(self, report) -> None:
         index = TORCH_INDEX.get(self.hardware["hizlandirma"]) if not MAC else None

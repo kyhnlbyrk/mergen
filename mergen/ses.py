@@ -68,8 +68,18 @@ class XttsEngine:
     def wake(self) -> None:
         if self.gpu:
             started = time.time()
-            self.tts.to(self.gpu)
+            try:
+                self.tts.to(self.gpu)
+            except Exception as error:
+                self._fall_back_to_cpu(error)
+                return
             log(f"ses modeli ekran kartında ({time.time() - started:.1f} sn)")
+
+    def _fall_back_to_cpu(self, error: Exception) -> None:
+        """Ekran kartında (özellikle Mac çipinde, MPS) çalışmadı: bundan sonra işlemcide çalışır."""
+        log(f"ses modeli {self.gpu} üzerinde çalışmadı ({error!r}), işlemcide devam ediyor")
+        self.gpu = None
+        self.tts.to("cpu")
 
     def sleep(self) -> None:
         if self.gpu:
@@ -79,7 +89,20 @@ class XttsEngine:
             log("ses modeli RAM'de, ekran kartı boş")
 
     def stream(self, part: str):
-        """Parçayı tek seferde (bağlı tonlamayla) üretir ama sesi hazır oldukça küçük dilimler hâlinde verir."""
+        """Parçayı tek seferde (bağlı tonlamayla) üretir ama sesi hazır oldukça küçük dilimler hâlinde verir. Ekran
+        kartında hata çıkarsa (Mac çipinde bazı işlemler desteklenmeyebilir) işlemcide yeniden üretir."""
+        produced = False
+        try:
+            for audio in self._stream(part):
+                produced = True
+                yield audio
+        except Exception as error:
+            if not self.gpu or produced:
+                raise
+            self._fall_back_to_cpu(error)
+            yield from self._stream(part)
+
+    def _stream(self, part: str):
         device = self.model.device
         # Son TAIL_HOLD saniye çalınmadan tutulur: parça bitince kuyruğundaki uydurma ses ("uh") kesilir.
         hold = int(TAIL_HOLD * self.rate)
@@ -197,6 +220,9 @@ class Voice:
                         if self.interrupted.is_set():
                             return
                         ready.put(audio)
+            except Exception as error:
+                # Ayrı iş parçacığında: kayda düşmezse Mergen sessizce susar, neden bilinmezdi.
+                log(f"ses üretilemedi: {error!r}")
             finally:
                 ready.put(None)
 
@@ -261,6 +287,16 @@ class Voice:
             if self.awake:
                 engine.wake()
         self.new_voice = True
+
+    def switch_to_piper(self) -> None:
+        """Ayarlardan hafif ses seçildi: Piper'a geçer, XTTS'nin tuttuğu ekran kartı belleği boşalır."""
+        with self._switch_lock:
+            if isinstance(self.engine, PiperEngine):
+                return
+            engine = PiperEngine()
+            with self._lock:
+                old, self.engine = self.engine, engine
+            old.sleep()
 
     def beep(self) -> None:
         t = np.linspace(0, 0.12, int(22050 * 0.12), False)

@@ -174,6 +174,11 @@
     </div>
     <hr>
     <div class="satir">
+      <label>SES</label>
+      <select id="sesMotoru"></select>
+      <div class="not" id="sesNotu"></div>
+    </div>
+    <div class="satir">
       <label>SES SEVİYESİ <span id="seviyeYazi">1,0×</span></label>
       <input id="seviye" type="range" min="0.3" max="3" step="0.1" value="1">
     </div>
@@ -366,6 +371,8 @@ const kaydedildi = document.getElementById("kaydedildi");
 const modelSec = document.getElementById("model"), eforSec = document.getElementById("efor");
 const whisperSec = document.getElementById("whisperModel"), kelimeKutu = document.getElementById("kelimeler");
 const arayaGirme = document.getElementById("arayaGirme");
+const sesMotoru = document.getElementById("sesMotoru");
+let sonAyarlar = {};  // panelin son gösterdiği ayarlar
 const beyinSec = document.getElementById("beyin"), tamYetki = document.getElementById("tamYetki");
 // Değer → görünen ad sözlüğünden seçim listesi.
 function doldurSozluk(secim, sozluk, secili) {
@@ -393,6 +400,11 @@ function ayarlariGoster(a) {
   document.getElementById("temelKelimeler").textContent = "Zaten tanıdıkları: " + a.temel_kelimeler;
   doldurSozluk(arayaGirme, a.araya_girme_secenekleri, a.araya_girme);
   doldurSozluk(beyinSec, a.beyinler, a.beyin); tamYetki.checked = a.tam_yetki;
+  sonAyarlar = a;
+  doldurSozluk(sesMotoru, a.ses_motorlari, a.ses_motoru);
+  document.getElementById("sesNotu").textContent = a.xtts_kurulu
+    ? "Doğal ses insan gibi konuşur; hafif ses her bilgisayarda anında konuşur ama daha robotiktir."
+    : "Doğal ses henüz indirilmedi; seçerseniz arka planda indirilir, bitince ona geçerim.";
 }
 async function ayarGonder(degisiklik) {
   kaydedildi.textContent = "kaydediliyor…";
@@ -417,6 +429,16 @@ whisperSec.addEventListener("change", () => ayarGonder({ whisper_model: whisperS
 kelimeKutu.addEventListener("change", () => ayarGonder({ kelimeler: kelimeKutu.value }));
 arayaGirme.addEventListener("change", () => ayarGonder({ araya_girme: arayaGirme.value }));
 beyinSec.addEventListener("change", () => ayarGonder({ beyin: beyinSec.value }));
+sesMotoru.addEventListener("change", () => {
+  if (sesMotoru.value === "xtts" && !sonAyarlar.xtts_kurulu) {
+    const boyut = (sonAyarlar.xtts_boyut / 1e9).toFixed(1).replace(".", ",");
+    if (!confirm(`Doğal ses için yaklaşık ${boyut} GB indirilecek; bu sırada hafif sesle konuşmaya devam ederim. `
+      + "Modelin lisansı yalnızca kişisel, ticari olmayan kullanıma izin verir. Kabul edip indirmeye başlayayım mı?")) {
+      sesMotoru.value = sonAyarlar.ses_motoru; return;
+    }
+    ayarGonder({ ses_motoru: "xtts", xtts_lisans: true });
+  } else ayarGonder({ ses_motoru: sesMotoru.value });
+});
 tamYetki.addEventListener("change", () => {
   if (tamYetki.checked && !confirm("Tam yetkide yapay zekâ bilgisayarınızda onay sormadan komut çalıştırır. Açılsın mı?")) {
     tamYetki.checked = false; return;
@@ -458,6 +480,7 @@ function postla(yol, govde = {}) { return fetch(yol, { method: "POST", headers: 
 async function kurulumBaslat() {
   kb = await (await fetch("/kurulum")).json();
   secim.ses_motoru = kb.donanim.hizlandirma === "cpu" ? "piper" : "xtts";
+  secim.whisper_model = kb.donanim.hizlandirma === "cuda" ? "large-v3-turbo" : "small";
   secim.mikrofon = kb.mikrofon; secim.hoparlor = kb.hoparlor;
   ilerleme = kb.ilerleme;
   if (kb.gerekli) {
@@ -541,7 +564,7 @@ const SAYFA = {
       : h === "mps" ? "Mac'inizin çipinde çalışır; cevaba başlamam bir iki saniye gecikebilir."
       : "Ekran kartınız sayesinde gecikmeden konuşurum.";
     return [el("h1", {}, "Sesim nasıl olsun?"),
-      el("p", { class: "alt" }, "Size cevap verirken bu sesle konuşacağım. İkisini de dinleyip karar verebilirsiniz."),
+      el("p", { class: "alt" }, "Size cevap verirken bu sesle konuşacağım. İkisini de dinleyip karar verebilirsiniz; sonradan ayarlardan değiştirebilirsiniz."),
       el("div", { class: "secenekler" },
         secenek(secim.ses_motoru === "xtts", ["Doğal ses", cpu ? rozet("YAVAŞ OLABİLİR", "uyari") : rozet("ÖNERİLEN"), dinle("xtts")],
           `İnsan sesine çok yakın; vurgulu ve akıcı konuşurum. ${hiz} İndirme boyutu ${gb(kb.boyutlar.xtts)}. İndirme sürerken hafif sesle çalışmaya başlarım, bitince bu sese kendiliğimden geçerim.`,
@@ -554,12 +577,22 @@ const SAYFA = {
         el("span", { html: 'Doğal ses modelinin <a href="https://tts-hub.github.io/cpml" target="_blank">lisansını</a> okudum ve kabul ediyorum: yalnızca kişisel, ticari olmayan kullanım.' })) : null,
       ileriGeri(secim.ses_motoru === "piper" || secim.xtts_lisans)];
   },
-  tanima: () => [el("h1", {}, "Sizi ne kadar iyi anlayayım?"),
-    el("p", { class: "alt" }, "Söylediklerinizi yazıya çeviren konuşma tanıma doğrudan bilgisayarınızda çalışır; sesiniz hiçbir yere gönderilmez. Daha iyi anlayan seçenekler daha büyüktür ve daha güçlü bir bilgisayar ister."),
-    el("div", { class: "secenekler" }, Object.keys(kb.whisper_modeller).map((ad) => secenek(secim.whisper_model === ad,
-      [WHISPER_ADLARI[ad] || ad, ad === "small" ? rozet("ÖNERİLEN") : null],
-      `${WHISPER_ACIKLAMA[ad] || ""} İndirme boyutu ${gb(kb.boyutlar.whisper[ad])}.`, () => { secim.whisper_model = ad; sayfaCiz(); }))),
-    ileriGeri()],
+  tanima: () => {
+    // NVIDIA kartında konuşma tanıma ekran kartında çalışır: en doğrusu da anında cevap verir. Kartsız bilgisayarda ve
+    // Mac'te işlemcide çalışır: büyük seçenekler her cümleden sonra bekletir.
+    const kart = kb.donanim.hizlandirma === "cuda", onerilen = kart ? "large-v3-turbo" : "small";
+    const aciklama = (ad) => kart && ad !== "small"
+      ? "Hızlı konuşmayı, teknik ve yabancı kelimeleri çok daha iyi anlarım. Ekran kartınız sayesinde bu da anında çalışır."
+      : WHISPER_ACIKLAMA[ad] || "";
+    return [el("h1", {}, "Sizi ne kadar iyi anlayayım?"),
+      el("p", { class: "alt" }, kart
+        ? "Söylediklerinizi yazıya çeviren konuşma tanıma doğrudan bilgisayarınızda, ekran kartınızda çalışır; sesiniz hiçbir yere gönderilmez."
+        : "Söylediklerinizi yazıya çeviren konuşma tanıma doğrudan bilgisayarınızda çalışır; sesiniz hiçbir yere gönderilmez. Daha iyi anlayan seçenekler daha büyüktür ve daha güçlü bir bilgisayar ister."),
+      el("div", { class: "secenekler" }, Object.keys(kb.whisper_modeller).map((ad) => secenek(secim.whisper_model === ad,
+        [WHISPER_ADLARI[ad] || ad, ad === onerilen ? rozet("ÖNERİLEN") : !kart && ad !== "small" ? rozet("YAVAŞ OLABİLİR", "uyari") : null],
+        `${aciklama(ad)} İndirme boyutu ${gb(kb.boyutlar.whisper[ad])}.`, () => { secim.whisper_model = ad; sayfaCiz(); }))),
+      ileriGeri()];
+  },
   yetki: () => [el("h1", {}, "Bilgisayarınızda ne kadar serbest olayım?"),
     el("p", { class: "alt" }, "Bunu sonradan ayarlardan değiştirebilirsiniz."),
     el("div", { class: "secenekler" },
@@ -588,7 +621,8 @@ const SAYFA = {
       ileriGeri()];
   },
   ozet: () => {
-    const boyut = kb.boyutlar.piper + kb.boyutlar.whisper[secim.whisper_model] + (secim.ses_motoru === "xtts" ? kb.boyutlar.xtts : 0);
+    const boyut = kb.boyutlar.piper + kb.boyutlar.whisper[secim.whisper_model]
+      + (secim.ses_motoru === "xtts" ? kb.boyutlar.xtts : kb.boyutlar.cuda);
     const yetmez = boyut + 5e8 > kb.donanim.bos_alan;
     const satir = (a, b) => [el("dt", {}, a), el("dd", {}, b)];
     return [el("h1", {}, "Her şey hazır beyim."),
@@ -624,13 +658,23 @@ function olcer(adim) {
   return el("div", { class: "olcer" + (adim.yuzde == null ? " belirsiz" : "") },
     el("div", { style: adim.yuzde != null ? `width:${adim.yuzde}%` : null }));
 }
+// Yüzdesi bilinmeyen adımda (paket kurulumu) geçen süre: ekran donmuş sanılmasın.
+function gecenSure(a) {
+  if (a.durum !== "suruyor" || a.yuzde != null || !a.basladi) return "";
+  const sn = Math.max(0, Math.round(Date.now() / 1000 - a.basladi));
+  return sn < 60 ? `${sn} sn` : `${Math.floor(sn / 60)} dk ${sn % 60} sn`;
+}
 function adimCiz(a) {
   const simge = { bekliyor: "○", suruyor: el("span", { class: "donen" }, "◌"), bitti: "✓", hata: "✕" }[a.durum];
+  const detay = [a.detay, gecenSure(a)].filter(Boolean).join(" · ");
   return el("div", { class: "adim " + a.durum }, el("div", { class: "simge" }, simge),
     el("div", { class: "ad" }, a.ad + (a.arka_plan ? " (siz kullanırken arka planda)" : "")),
     a.durum === "suruyor" ? olcer(a) : null,
-    a.detay ? el("div", { class: "detay", title: a.detay }, a.detay) : null);
+    detay ? el("div", { class: "detay", title: detay }, detay) : null);
 }
+setInterval(() => {
+  if (ilerleme && ilerleme.durum === "kuruluyor") { if (ilerlemeEkranda) ilerlemeCiz(); arkaPlanCiz(); }
+}, 1000);
 function hataDugmeleri(s) {
   const arkaPlanHatasi = s.adimlar.some((a) => a.durum === "hata" && a.arka_plan);
   return el("div", { class: "dugmeler" },
@@ -671,7 +715,8 @@ function arkaPlanCiz() {
   if (!s.arka_plan || !adim) return;
   arkaPlanKutu.classList.add("acik");
   arkaPlanKutu.replaceChildren(
-    el("div", {}, s.durum === "hata" ? "Doğal ses kurulamadı: " + s.hata : adim.ad + (adim.yuzde != null ? ` · %${Math.round(adim.yuzde)}` : "…")),
+    el("div", {}, s.durum === "hata" ? "Doğal ses kurulamadı: " + s.hata
+      : adim.ad + (adim.yuzde != null ? ` · %${Math.round(adim.yuzde)}` : gecenSure(adim) ? ` · ${gecenSure(adim)}` : "…")),
     s.durum === "hata" ? hataDugmeleri(s) : olcer(adim));
 }
 kurulumBaslat();

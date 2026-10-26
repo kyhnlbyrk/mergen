@@ -1,10 +1,15 @@
 """Mergen'in kulağı: mikrofonu sürekli (internetsiz) dinler, konuşma parçalarını Whisper'la (işlemcide) yazıya çevirir.
 Mergen konuşurken kullanıcı konuşursa sözünü kesmeye de burası karar verir (BargeDetector)."""
 import collections
+import ctypes
+import importlib
+import importlib.util
+import os
 import queue
 import re
 import threading
 import time
+from pathlib import Path
 
 import numpy as np
 import sounddevice as sd
@@ -15,6 +20,7 @@ from .ayarlar import SETTINGS
 from .cihazlar import find_device
 from .kayit import log
 from .ses import LEVEL_STEP, envelope, rms
+from .yollar import WINDOWS
 
 RATE = 16000
 INF = float("inf")
@@ -83,20 +89,42 @@ def _load_whisper(name: str) -> WhisperModel:
 
 
 def _cuda_available() -> bool:
-    """Whisper ekran kartını sadece PyTorch kuruluysa kullanır: CUDA kitaplıklarını (cuBLAS, cuDNN) PyTorch getirir,
-    içe aktarılınca Whisper da onları bulur. Onlarsız ekran kartında çözümleme hata vermeden takılıyordu."""
+    """NVIDIA ekran kartı var mı (anında bakılır; kartsız bilgisayar ve Mac burada döner) ve Whisper'ın istediği CUDA
+    kitaplıkları (cuBLAS, cuDNN) bulunuyor mu. Kitaplıklar olmadan ekran kartında çözümleme hata vermeden takılıyordu."""
     try:
-        import importlib
-        import importlib.util
-
-        if not importlib.util.find_spec("torch"):
-            return False
-        importlib.import_module("torch")
         import ctranslate2
 
-        return ctranslate2.get_cuda_device_count() > 0
+        if ctranslate2.get_cuda_device_count() == 0:
+            return False
     except Exception:
         return False
+    return load_cuda_libraries()
+
+
+def load_cuda_libraries() -> bool:
+    """CUDA kitaplıklarını Whisper'ın bulacağı yere koyar. Ya PyTorch getirir (doğal ses için kurulur; içe aktarılınca
+    kitaplıklarını yükleme yoluna ekler) ya da kurulumun NVIDIA kartı için indirdiği nvidia-cublas / nvidia-cudnn
+    paketleri."""
+    if importlib.util.find_spec("torch"):
+        importlib.import_module("torch")
+        return True
+    folders = []
+    for package in ("nvidia.cublas", "nvidia.cudnn"):
+        try:
+            spec = importlib.util.find_spec(package)
+        except ModuleNotFoundError:
+            spec = None
+        if spec is None or not spec.submodule_search_locations:
+            return False
+        folders.append(Path(spec.submodule_search_locations[0]) / ("bin" if WINDOWS else "lib"))
+    for folder in folders:
+        if WINDOWS:
+            os.add_dll_directory(str(folder))
+            os.environ["PATH"] = str(folder) + os.pathsep + os.environ.get("PATH", "")
+        else:
+            for library in sorted(folder.glob("lib*.so*")):
+                ctypes.CDLL(str(library), mode=ctypes.RTLD_GLOBAL)
+    return True
 
 
 class Ears:
@@ -128,6 +156,14 @@ class Ears:
         self.stream = sd.RawInputStream(samplerate=RATE, blocksize=BLOCK, dtype="int16", channels=1, callback=self._on_audio,
                                          device=find_device(name, output=False))
         self.stream.start()
+
+    def move_to_gpu(self) -> None:
+        """Doğal ses için PyTorch arka planda kuruldu: işlemcide açılan Whisper artık ekran kartına geçebilir."""
+        if self.whisper.model.device == "cuda" or not _cuda_available():
+            return
+        whisper = _load_whisper(SETTINGS["whisper_model"])
+        self.wake_whisper = whisper if SETTINGS["whisper_model"] == WAKE_MODEL else _load_whisper(WAKE_MODEL)
+        self.whisper = whisper
 
     def load_whisper(self, name: str) -> None:
         """Whisper modelini değiştirir (arka planda yüklenir; ilk seçimde iner). Yüklenene kadar eskisi çalışır."""

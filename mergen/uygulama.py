@@ -18,12 +18,13 @@ SLEEP_WORDS = re.compile(r"görüşürüz|görüşmek üzere|tamam teşekkür|te
 # Mergen tamamen kapanır (bellek ve ekran kartı boşalır).
 SHUTDOWN_WORDS = re.compile(r"kapat kendini|kendini kapat|programı kapat|mergen'?i kapat")
 RESET_WORDS = re.compile(r"yeni konuşma|baştan başla")
+VOICE_ENGINES = {"xtts": "Doğal ses", "piper": "Hafif ses"}
 
 GREETINGS = ["Buyurun beyim?", "Dinliyorum beyim.", "Emrinizdeyim beyim.", "Evet beyim?", "Buradayım beyim."]
 GOODBYES = ["Her zaman buradayım beyim.", "Görüşmek üzere beyim.", "Bir şey olursa seslenmeniz yeterli beyim.", "Peki beyim."]
 
 
-def connect_settings(screen: Screen, voice: Voice, ears: Ears, brain_holder: list) -> None:
+def connect_settings(screen: Screen, voice: Voice, ears: Ears, brain_holder: list, setup: Setup) -> None:
     """Ekrandaki ayarlar paneli: değişiklik anında uygulanır ve ayar.json'a kaydedilir; "Sesi dene"."""
 
     def get() -> dict:
@@ -32,6 +33,8 @@ def connect_settings(screen: Screen, voice: Voice, ears: Ears, brain_holder: lis
             "beyin": SETTINGS["beyin"], "beyinler": {key: cls.TITLE for key, cls in BRAINS.items()},
             "model": SETTINGS["model"], "modeller": brain.MODELS, "efor": SETTINGS["efor"], "eforlar": brain.EFFORTS,
             "tam_yetki": SETTINGS["tam_yetki"],
+            "ses_motoru": SETTINGS["ses_motoru"], "ses_motorlari": VOICE_ENGINES,
+            "xtts_kurulu": SETTINGS["xtts_kurulu"], "xtts_boyut": setup.sizes()["xtts"],
             "ses_seviyesi": SETTINGS["ses_seviyesi"], "sessizlik_suresi": SETTINGS["sessizlik_suresi"],
             "hoparlor": device_name(voice.speaker, output=True), "hoparlorler": list_devices(output=True),
             "mikrofon": SETTINGS["mikrofon"] or device_name(None, output=False), "mikrofonlar": list_devices(output=False),
@@ -58,6 +61,17 @@ def connect_settings(screen: Screen, voice: Voice, ears: Ears, brain_holder: lis
             restart = True
         if restart:
             brain.restart()
+        engine = changes.get("ses_motoru")
+        if engine in VOICE_ENGINES and engine != SETTINGS["ses_motoru"]:
+            if engine == "piper":
+                SETTINGS["ses_motoru"] = "piper"
+                threading.Thread(target=voice.switch_to_piper, daemon=True).start()
+            elif SETTINGS["xtts_kurulu"]:
+                SETTINGS["ses_motoru"] = "xtts"
+                threading.Thread(target=voice.switch_to_xtts, daemon=True).start()
+            elif changes.get("xtts_lisans"):
+                # Doğal ses henüz indirilmedi: kurulum arka planda indirir (ekranın köşesinde ilerleme), bitince geçer.
+                setup.start({"ses_motoru": "xtts", "xtts_lisans": True})
         if changes.get("whisper_model") in WHISPER_MODELS and changes["whisper_model"] != SETTINGS["whisper_model"]:
             SETTINGS["whisper_model"] = changes["whisper_model"]
             threading.Thread(target=ears.load_whisper, args=(SETTINGS["whisper_model"],), daemon=True).start()
@@ -117,18 +131,24 @@ def main() -> None:
         log("ilk açılış: kurulum sihirbazı bekleniyor")
         setup.core_ready.wait()
     voice = Voice(screen)
-    setup.on_xtts_ready = voice.switch_to_xtts
-    if SETTINGS["ses_motoru"] == "xtts" and SETTINGS["xtts_kurulu"]:
-        # Doğal ses, Voice açılırken inip bitmiş olabilir.
-        threading.Thread(target=voice.switch_to_xtts, daemon=True).start()
-    setup.resume_background()
     ears = Ears(screen)
+
+    def xtts_ready() -> None:
+        # Doğal ses ve onunla PyTorch kuruldu: ses XTTS'ye geçer, işlemcide açılan Whisper ekran kartına (NVIDIA varsa).
+        voice.switch_to_xtts()
+        ears.move_to_gpu()
+
+    setup.on_xtts_ready = xtts_ready
+    if SETTINGS["ses_motoru"] == "xtts" and SETTINGS["xtts_kurulu"]:
+        # Doğal ses, Mergen açılırken inip bitmiş olabilir (ikisi de zaten geçtiyse bir şey yapmaz).
+        threading.Thread(target=xtts_ready, daemon=True).start()
+    setup.resume_background()
     # Panelden yapay zekâ değişince yenisi buraya konur; döngü her soruda buradan okur.
     brains = [create_brain()]
     threading.Thread(target=brains[0].start, daemon=True).start()
     ears.barge_event = voice.interrupted
     voice.barge = ears.barge = BargeDetector()
-    connect_settings(screen, voice, ears, brains)
+    connect_settings(screen, voice, ears, brains, setup)
     voice.wake()
     voice.say("Sistemler hazır beyim. Mergen uyan demeniz yeterli.")
     voice.sleep()

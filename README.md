@@ -6,8 +6,8 @@ yeterli: uygulamalarınızı açar, müziğinizi çalar, oyununuzu başlatır, b
 API anahtarı gerekmez. Mergen, aboneliğinizle giriş yaptığınız resmi yapay zekâ aracını kullanır. Ses tanıma ve
 konuşma tamamen sizin bilgisayarınızda çalışır.
 
-> **Durum:** geliştirme aşamasında. Şu an Windows'ta ve Claude ile çalışıyor. ChatGPT (Codex), Gemini, macOS desteği
-> ve tek tıkla kurulum yolda.
+> **Durum:** geliştirme aşamasında. Windows'ta ve Claude ile çalışıyor; macOS desteği denenmekte. ChatGPT (Codex) ve
+> Gemini yolda.
 
 ## Nasıl çalışır?
 
@@ -33,15 +33,26 @@ hoparlörü değiştirebilirsiniz.
 
 Mergen konuşurken araya girerseniz susar ve sizi dinler.
 
-## Geliştirici kurulumu (şimdilik)
+## Kurulum
+
+Önce kullanacağınız yapay zekânın aracını kurup aboneliğinizle giriş yapın (Claude için
+[Claude Code](https://claude.com/claude-code), ardından `claude auth login`). Sonra tek komut yeter; Python kurulu
+olmasa da olur.
+
+**Windows** (PowerShell):
+
+```powershell
+irm https://raw.githubusercontent.com/kyhnlbyrk/mergen/main/install.ps1 | iex
+```
+
+**macOS** (Terminal):
 
 ```bash
-git clone https://github.com/kyhnlbyrk/mergen.git
-cd mergen
-python -m venv .venv
-.venv\Scripts\pip install -e .
-.venv\Scripts\python -m mergen
+curl -fsSL https://raw.githubusercontent.com/kyhnlbyrk/mergen/main/install.sh | bash
 ```
+
+Kurulum soru sormaz: Mergen'i indirir, masaüstüne ve Başlat menüsüne (macOS'ta Launchpad'e) kısayol koyar ve açar.
+Aynı komutu yeniden çalıştırmak Mergen'i günceller; ayarlarınız ve indirilen modeller korunur.
 
 İlk açılışta ekranda bir kurulum sihirbazı çıkar. Bilgisayarınızı (işletim sistemi, ekran kartı, disk) kendisi tanır ve
 size sadece tercihlerinizi sorar: yapay zekâ, ses (örnekleri dinleyerek), konuşma tanıma, yetki, mikrofon ve hoparlör.
@@ -51,9 +62,22 @@ ses arka planda iner ve bitince ona geçer.
 Seçtiğiniz yapay zekânın aracı kurulu ve giriş yapılmış olmalı. Sihirbaz bunu denetler; değilse hangi komutları
 çalıştıracağınızı gösterir.
 
+NVIDIA ekran kartı varsa konuşma tanıma ve doğal ses ekran kartında çalışır, gerekenleri sihirbaz kendisi indirir.
+
+### Geliştiriciler için
+
+```bash
+git clone https://github.com/kyhnlbyrk/mergen.git
+cd mergen
+python -m venv .venv
+.venv\Scripts\pip install -e .
+.venv\Scripts\python -m mergen
+```
+
 ## Dosyalar nerede?
 
-Ayarlar, kayıtlar, notlar ve indirilen modeller tek bir klasörde durur. Mergen'i kaldırınca bu klasörü silmeniz yeterli:
+Mergen'in kendisi, ayarlar, kayıtlar, notlar ve indirilen modeller tek bir klasörde durur. Kaldırmak için bu klasörü
+ve kısayolu (macOS'ta `~/Applications/Mergen.app`) silmeniz yeterli:
 
 - Windows: `%LOCALAPPDATA%\Mergen`
 - macOS: `~/Library/Application Support/Mergen`
