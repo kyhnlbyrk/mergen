@@ -479,10 +479,15 @@ function gb(b) { return b >= 1e8 ? (b / 1e9).toFixed(1).replace(".", ",") + " GB
 function postla(yol, govde = {}) { return fetch(yol, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(govde) }); }
 
 async function kurulumBaslat() {
-  // Pencere, Mergen kütüphanelerini yüklerken açılır; kurulum ucu hazır olana kadar beklenir.
-  const cevap = await fetch("/kurulum").catch(() => null);
-  if (!cevap || !cevap.ok) { setTimeout(kurulumBaslat, 1000); return; }
-  kb = await cevap.json();
+  // Pencere, Mergen kütüphanelerini yüklerken açılır; kurulum ucu hazır olana kadar (her hatada) yeniden denenir.
+  try {
+    const cevap = await fetch("/kurulum");
+    if (!cevap.ok) throw new Error("kurulum ucu hazır değil: " + cevap.status);
+    kb = await cevap.json();
+  } catch (hata) {
+    setTimeout(kurulumBaslat, 1000);
+    return;
+  }
   secim.ses_motoru = kb.donanim.hizlandirma === "cpu" ? "piper" : "xtts";
   secim.whisper_model = kb.donanim.hizlandirma === "cuda" ? "large-v3-turbo" : "small";
   secim.mikrofon = kb.mikrofon; secim.hoparlor = kb.hoparlor;

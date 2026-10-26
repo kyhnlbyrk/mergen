@@ -102,7 +102,13 @@ class Screen:
                     self.send_response(404)
                     self.end_headers()
                     return
-                self._send(PAGE.read_bytes(), "text/html; charset=utf-8")
+                if path in ("/", "/index.html"):
+                    self._send(PAGE.read_bytes(), "text/html; charset=utf-8")
+                    return
+                # Henüz kaydolmamış uç (açılışta kütüphaneler yüklenirken /kurulum, /ayarlar): sayfa yerine "bulunamadı";
+                # sayfa döndürülünce ekran onu kurulum bilgisi sanıp takılıyordu (Mac'te, 2026-10-27).
+                self.send_response(404)
+                self.end_headers()
 
         self.server = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
         self.server.daemon_threads = True
