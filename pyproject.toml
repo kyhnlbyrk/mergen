@@ -16,7 +16,8 @@ dependencies = [
 
 [project.optional-dependencies]
 # Doğal ses (XTTS v2). Model lisansı CPML: ticari olmayan kullanım; kurulumda kullanıcıya onaylatılır.
-xtts = ["coqui-tts>=0.27", "torch", "torchaudio"]
+# torchcodec: PyTorch 2.9'dan beri coqui açılırken kurulu olmasını istiyor (kullanılmıyor).
+xtts = ["coqui-tts>=0.27", "torch", "torchaudio", "torchcodec"]
 # Hafif ses (Piper).
 piper = ["piper-tts>=1.3"]
 

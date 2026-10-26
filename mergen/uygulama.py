@@ -129,6 +129,9 @@ def main(screen: Screen) -> None:
     xtts_was_installed = SETTINGS["xtts_kurulu"]
     started = time.time()
     voice = Voice(screen)
+    if setup.waited_for_xtts:
+        # Kullanıcı ilk açılışta doğal sesi bekledi: ilk sözü ("Sistemler hazır") mekanik sesle olmasın.
+        voice.switch_to_xtts(announce=False)
     log(f"açılış: ses hazır ({time.time() - started:.1f} sn)")
     started = time.time()
     ears = Ears(screen)

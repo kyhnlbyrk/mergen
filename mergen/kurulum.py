@@ -235,6 +235,10 @@ class Setup:
             self.core_ready.set()
         # Doğal ses arka planda inip kurulunca çağrılır (uygulama.py: Piper'dan XTTS'ye geçer).
         self.on_xtts_ready = None
+        # Doğal ses seçildiyse hafif ses hazır olunca kullanıcıya sorulur: hafif (mekanik) sesle hemen mi başlansın, doğal
+        # ses inene kadar mı beklensin. Beklenirse Mergen doğal ses inince açılır ve ilk sözünü onunla söyler.
+        self.awaiting_choice = False
+        self.waited_for_xtts = False
         self.status = "bekliyor"  # bekliyor / kuruluyor / bitti / hata
         self.error = ""
         self.steps: list[dict] = []
@@ -248,12 +252,13 @@ class Setup:
         routes[("POST", "/kurulum/hoparlor")] = self.test_speaker
         routes[("POST", "/kurulum/baslat")] = self.start
         routes[("POST", "/kurulum/piper")] = self.fall_back_to_piper
+        routes[("POST", "/kurulum/simdi")] = self.open_now
 
     # --- Ekranın sordukları ------------------------------------------------------------------------------------
 
     def state(self) -> dict:
         return {
-            "gerekli": not SETTINGS["kurulum_tamam"],
+            "gerekli": not self.core_ready.is_set(),
             "donanim": self.hardware,
             "beyinler": [{"ad": key, "baslik": cls.TITLE} for key, cls in BRAINS.items()]
             + [{"ad": key, "baslik": title, "yakinda": True} for key, title in COMING_SOON.items()],
@@ -279,7 +284,8 @@ class Setup:
 
     def progress(self) -> dict:
         background = self.status in ("kuruluyor", "hata") and self.core_ready.is_set()
-        return {"durum": self.status, "adimlar": self.steps, "hata": self.error, "arka_plan": background}
+        return {"durum": self.status, "adimlar": self.steps, "hata": self.error, "arka_plan": background,
+                "secim_bekliyor": self.awaiting_choice, "acildi": self.core_ready.is_set()}
 
     def test_microphone(self, body: dict) -> dict:
         """Seçilen mikrofonu açar, seviyesini ekrana yollar ("mikseviye"): kullanıcı konuşunca çubuk oynar."""
@@ -342,7 +348,7 @@ class Setup:
         if xtts:
             if not installed("torch"):
                 self.steps.append(self._step("torch", "Doğal ses için gerekli yazılım kuruluyor (1/2)", background=True))
-            if not installed("TTS"):
+            if not installed("TTS") or not installed("torchcodec"):
                 self.steps.append(self._step("coqui", "Doğal ses için gerekli yazılım kuruluyor (2/2)", background=True))
             self.steps.append(self._step("xtts", "Doğal ses indiriliyor", background=True))
         self.status, self.error = "kuruluyor", ""
@@ -366,7 +372,15 @@ class Setup:
         SETTINGS["ses_motoru"] = "piper"
         save_settings()
         self.status, self.error = "bitti", ""
+        if not self.core_ready.is_set():
+            self._open()  # doğal ses beklenirken kurulamadı: Mergen hafif sesle açılır
         self._push(force=True)
+        return self.progress()
+
+    def open_now(self, body: dict) -> dict:
+        """Kullanıcı doğal sesi beklemek istemedi: Mergen hafif sesle hemen açılır, doğal ses arka planda iner."""
+        if not self.core_ready.is_set():
+            self._open()
         return self.progress()
 
     @staticmethod
@@ -378,16 +392,20 @@ class Setup:
         try:
             for step in self.steps:
                 current = step
-                if step["arka_plan"] and not self.core_ready.is_set():
-                    self._core_done()
+                if step["arka_plan"] and not self.core_ready.is_set() and not self.awaiting_choice:
+                    self._core_done(ask=True)
                 self._do(step)
-            if not self.core_ready.is_set():
+            if not self.core_ready.is_set() and not self.awaiting_choice:
                 self._core_done()
             if SETTINGS["ses_motoru"] == "xtts" and not SETTINGS["xtts_kurulu"]:
                 SETTINGS["xtts_kurulu"] = True
                 save_settings()
                 log("kurulum: doğal ses hazır")
-                if self.on_xtts_ready:
+                if not self.core_ready.is_set():
+                    # Kullanıcı doğal sesi bekledi: Mergen şimdi açılır, ilk sözünü doğal sesle söyler (uygulama.py).
+                    self.waited_for_xtts = True
+                    self._open()
+                elif self.on_xtts_ready:
                     self.on_xtts_ready()
             self.status = "bitti"
         except Exception as error:
@@ -397,11 +415,23 @@ class Setup:
             self.status, self.error = "hata", str(error)
         self._push(force=True)
 
-    def _core_done(self) -> None:
-        """Mergen'in açılması için gerekenler hazır: sihirbaz kapanır, Mergen Piper'la açılır (XTTS arka planda iner)."""
+    def _core_done(self, ask: bool = False) -> None:
+        """Mergen'in açılması için gerekenler (Piper, Whisper) hazır. Doğal ses hâlâ iniyorsa (ask) kullanıcıya sorulur:
+        hafif sesle hemen mi başlansın (open_now), doğal ses inene kadar mı beklensin. Yoksa Mergen hemen açılır."""
+        self._stop_microphone()
+        if ask:
+            self.awaiting_choice = True
+            log("kurulum: hafif ses hazır, doğal sesi bekleyip beklemeyeceği soruluyor")
+            self._push(force=True)
+        else:
+            self._open()
+
+    def _open(self) -> None:
+        # Kurulum ancak Mergen açılınca tamam sayılır: seçim beklenirken kapatılırsa sihirbaz bir sonraki açılışta yeniden
+        # çıkar (inmiş olanlar yeniden inmez).
         SETTINGS["kurulum_tamam"] = True
         save_settings()
-        self._stop_microphone()
+        self.awaiting_choice = False
         log("kurulum: Mergen açılıyor")
         self.core_ready.set()
         self._push(force=True)
@@ -478,7 +508,9 @@ class Setup:
         pip_install(["torch", "torchaudio"] + (["--index-url", index] if index else []), report)
 
     def _install_coqui(self, report) -> None:
-        pip_install(["coqui-tts>=0.27"], report)
+        # PyTorch 2.9'dan beri coqui açılırken torchcodec paketinin kurulu olmasını istiyor (yoksa XTTS açılmıyor, Mac'te
+        # 2026-10-27). Kendisi kullanılmaz: ses dosyası okuma ses.py'deki _load_wav_tensor'la yapılır (FFmpeg istemez).
+        pip_install(["coqui-tts>=0.27", "torchcodec"], report)
 
     def _install_xtts(self, report) -> None:
         hf_download(XTTS_REPO, report, ignore=XTTS_IGNORE)

@@ -105,9 +105,8 @@ def load_cuda_libraries() -> bool:
     """CUDA kitaplıklarını Whisper'ın bulacağı yere koyar. Ya PyTorch getirir (doğal ses için kurulur; içe aktarılınca
     kitaplıklarını yükleme yoluna ekler) ya da kurulumun NVIDIA kartı için indirdiği nvidia-cublas / nvidia-cudnn
     paketleri."""
-    if importlib.util.find_spec("torch"):
-        importlib.import_module("torch")
-        return True
+    if importlib.util.find_spec("torch") and importlib.import_module("torch").version.cuda:
+        return True  # PyTorch'un işlemci sürümünde CUDA kitaplıkları yok: o zaman aşağıdaki paketlere bakılır
     folders = []
     for package in ("nvidia.cublas", "nvidia.cudnn"):
         try:
