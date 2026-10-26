@@ -32,6 +32,9 @@ LEVEL_GAIN = 5.0
 # Piper'ın Türkçe sesi (Hugging Face'ten, diğer modellerle aynı önbelleğe iner; kurulum.py).
 PIPER_REPO = "rhasspy/piper-voices"
 PIPER_MODEL = "tr/tr_TR/dfki/medium/tr_TR-dfki-medium.onnx"
+# XTTS "Mergen"i çoğu kez "Mercan" diye okuyor. Yazımlar söyletilip Whisper'a dinletildi (2026-10-27): düz "Mergen" 8'de
+# 1, "Mêrgen" 8'de 5 doğru duyuldu. Sadece seslendirilen metinde değişir, ekranda "Mergen" kalır. Piper doğru okuyor.
+SPOKEN_NAME = re.compile(r"\bMergen", re.IGNORECASE)
 XTTS_REPO = "tts-hub/XTTS-v2"
 XTTS_IGNORE = ["samples/*", "dvae.pth"]
 
@@ -91,6 +94,7 @@ class XttsEngine:
     def stream(self, part: str):
         """Parçayı tek seferde (bağlı tonlamayla) üretir ama sesi hazır oldukça küçük dilimler hâlinde verir. Ekran
         kartında hata çıkarsa (Mac çipinde bazı işlemler desteklenmeyebilir) işlemcide yeniden üretir."""
+        part = SPOKEN_NAME.sub("Mêrgen", part)
         produced = False
         try:
             for audio in self._stream(part):
