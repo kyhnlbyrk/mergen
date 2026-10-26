@@ -40,7 +40,8 @@ class Screen:
         self._lock = threading.Lock()
         self._levels: list[tuple[float, float]] = []  # (çalınacağı an, seviye)
         self._history: list[dict] = []  # sonradan açılan sayfa da konuşmayı görsün
-        self.state = "uyku"
+        # Açılışta kütüphaneler yüklenirken "hazırlanıyor"; sonra ana döngü uyku / dinliyor / ... diye değiştirir.
+        self.state = "hazirlaniyor"
         # Sayfanın çağırdığı uçlar: {("GET" | "POST", "/yol"): işlev}. İşlev POST'ta gövdeyi (JSON) alır, JSON döndürür.
         # Ayarlar paneli (uygulama.py) ve kurulum sihirbazı (kurulum.py) buraya kaydolur.
         self.routes: dict[tuple[str, str], object] = {}

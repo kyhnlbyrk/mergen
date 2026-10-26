@@ -74,6 +74,9 @@ if [[ "$(uname)" == "Darwin" ]]; then
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>0.1.0</string>
   <key>LSMinimumSystemVersion</key><string>11.0</string>
+  <!-- Mergen'in penceresi tarayıcı penceresidir; Python'un Dock simgesi olmaz (yoksa simge açılış bitti sanılana
+       kadar dakikalarca zıplıyordu). -->
+  <key>LSUIElement</key><true/>
   <key>NSMicrophoneUsageDescription</key><string>Mergen sizi duyabilmek için mikrofonu kullanır; ses bilgisayarınızın dışına gönderilmez.</string>
 </dict>
 </plist>
@@ -81,7 +84,8 @@ PLIST
   cat > "$APP/Contents/MacOS/Mergen" <<LAUNCHER
 #!/bin/bash
 cd "$UYGULAMA"
-exec "$ORTAM/bin/python" -m mergen
+# Finder'dan açılınca çıktılar hiçbir yere gitmiyor: hatalar konsol.log'a yazılsın.
+exec "$ORTAM/bin/python" -m mergen >> "$VERI/konsol.log" 2>&1
 LAUNCHER
   chmod +x "$APP/Contents/MacOS/Mergen"
   printf '\n  \033[32mMergen kuruldu. Launchpad ya da Spotlight ile "Mergen" diye açabilirsiniz.\033[0m\n'

@@ -158,16 +158,6 @@ class PiperEngine:
         pass
 
 
-def create_engine():
-    """Ayardaki ses motoru; XTTS henüz kurulmadıysa (arka planda iniyor) ya da açılamazsa Piper."""
-    if SETTINGS["ses_motoru"] == "xtts" and SETTINGS["xtts_kurulu"]:
-        try:
-            return XttsEngine()
-        except Exception as error:
-            log(f"XTTS açılamadı ({error!r}), Piper kullanılıyor")
-    return PiperEngine()
-
-
 class Voice:
     """Paragraf paragraf konuşur, akışla: ses üretildikçe kesintisiz tek bir hoparlör akışına yazılır (üretim ayrı iş
     parçacığında; çalma onu beklemez)."""
@@ -181,10 +171,20 @@ class Voice:
         self.interrupted = threading.Event()
         self.barge = None
         self.speaker = find_device(SETTINGS["hoparlor"], output=True)
-        self.engine = create_engine()
         self.awake = False
         # Ses Piper'dan XTTS'ye geçti, henüz söylenmedi.
         self.new_voice = False
+        # Mergen hafif sesle hemen açılır. Doğal ses (seçildiyse ve kuruluysa) arka planda yüklenir ve hazır olunca
+        # sessizce ona geçilir: yüklemesi Windows'ta ekran kartıyla ~40 sn, Mac'te daha uzun sürüyor; açılış onu beklerse
+        # pencere dakikalarca "hazırlanıyor" kalıyordu.
+        try:
+            self.engine = PiperEngine()
+        except Exception as error:
+            log(f"hafif ses açılamadı ({error!r}), doğal ses bekleniyor")
+            self.engine = XttsEngine()
+            return
+        if SETTINGS["ses_motoru"] == "xtts" and SETTINGS["xtts_kurulu"]:
+            threading.Thread(target=self.switch_to_xtts, kwargs={"announce": False}, daemon=True).start()
 
     def set_speaker(self, name: str) -> None:
         self.speaker = find_device(name, output=True)
@@ -272,21 +272,24 @@ class Voice:
         self.awake = False
         self.engine.sleep()
 
-    def switch_to_xtts(self) -> None:
-        """Doğal ses arka planda indi: Piper'dan XTTS'ye geçer (bir sonraki uyanışta Mergen bunu söyler)."""
+    def switch_to_xtts(self, announce: bool = True) -> None:
+        """Piper'dan XTTS'ye geçer. announce: doğal ses yeni indi, bir sonraki uyanışta Mergen bunu söyler (her açılışta
+        arka planda yüklenip geçildiğinde söylenmez)."""
         with self._switch_lock:
             if isinstance(self.engine, XttsEngine):
                 return
+            started = time.time()
             try:
                 engine = XttsEngine()
             except Exception as error:
                 log(f"XTTS açılamadı ({error!r}), Piper'la devam")
                 return
-        with self._lock:
-            self.engine = engine
-            if self.awake:
-                engine.wake()
-        self.new_voice = True
+            with self._lock:
+                self.engine = engine
+                if self.awake:
+                    engine.wake()
+            log(f"doğal sese geçildi ({time.time() - started:.1f} sn)")
+        self.new_voice = announce
 
     def switch_to_piper(self) -> None:
         """Ayarlardan hafif ses seçildi: Piper'a geçer, XTTS'nin tuttuğu ekran kartı belleği boşalır."""

@@ -235,6 +235,7 @@ function takipEt() {
 }
 
 const DURUMLAR = {
+  hazirlaniyor: { yazi: "hazırlanıyor…",        renk: [70, 120, 150],  hiz: 0.6,  parlak: 0.45 },
   uyku:      { yazi: "uykuda — “Mergen uyan”", renk: [70, 120, 150],  hiz: 0.15, parlak: 0.35 },
   dinliyor:  { yazi: "dinliyorum",            renk: [90, 210, 255],  hiz: 0.5,  parlak: 0.8 },
   dusunuyor: { yazi: "düşünüyorum",           renk: [255, 180, 80],  hiz: 2.2,  parlak: 0.75 },
@@ -478,7 +479,10 @@ function gb(b) { return b >= 1e8 ? (b / 1e9).toFixed(1).replace(".", ",") + " GB
 function postla(yol, govde = {}) { return fetch(yol, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(govde) }); }
 
 async function kurulumBaslat() {
-  kb = await (await fetch("/kurulum")).json();
+  // Pencere, Mergen kütüphanelerini yüklerken açılır; kurulum ucu hazır olana kadar beklenir.
+  const cevap = await fetch("/kurulum").catch(() => null);
+  if (!cevap || !cevap.ok) { setTimeout(kurulumBaslat, 1000); return; }
+  kb = await cevap.json();
   secim.ses_motoru = kb.donanim.hizlandirma === "cpu" ? "piper" : "xtts";
   secim.whisper_model = kb.donanim.hizlandirma === "cuda" ? "large-v3-turbo" : "small";
   secim.mikrofon = kb.mikrofon; secim.hoparlor = kb.hoparlor;

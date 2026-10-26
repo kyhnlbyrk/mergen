@@ -4,6 +4,7 @@ import os
 import random
 import re
 import threading
+import time
 
 from .arayuz import Screen
 from .ayarlar import SETTINGS, save_settings
@@ -111,13 +112,8 @@ def connect_settings(screen: Screen, voice: Voice, ears: Ears, brain_holder: lis
     screen.routes[("POST", "/dene")] = lambda body: threading.Thread(target=test, daemon=True).start()
 
 
-def main() -> None:
-    # Zaten açıksa ikinci bir Mergen başlamaz (iki tane aynı anda dinleyip cevap verirdi): sadece ekran öne gelir.
-    if Screen.already_running():
-        Screen.open()
-        return
-    screen = Screen()
-    screen.open()
+def main(screen: Screen) -> None:
+    """Ekran (__main__.py) bu modülün ağır kütüphaneleri yüklenmeden önce açılır; buradan sonrası onun üzerinde çalışır."""
 
     def shutdown() -> None:
         log("ekrandan kapatıldı")
@@ -130,8 +126,13 @@ def main() -> None:
         # Mergen açılır (doğal ses seçildiyse arka planda inmeye devam eder).
         log("ilk açılış: kurulum sihirbazı bekleniyor")
         setup.core_ready.wait()
+    xtts_was_installed = SETTINGS["xtts_kurulu"]
+    started = time.time()
     voice = Voice(screen)
+    log(f"açılış: ses hazır ({time.time() - started:.1f} sn)")
+    started = time.time()
     ears = Ears(screen)
+    log(f"açılış: konuşma tanıma hazır ({time.time() - started:.1f} sn)")
 
     def xtts_ready() -> None:
         # Doğal ses ve onunla PyTorch kuruldu: ses XTTS'ye geçer, işlemcide açılan Whisper ekran kartına (NVIDIA varsa).
@@ -139,8 +140,8 @@ def main() -> None:
         ears.move_to_gpu()
 
     setup.on_xtts_ready = xtts_ready
-    if SETTINGS["ses_motoru"] == "xtts" and SETTINGS["xtts_kurulu"]:
-        # Doğal ses, Mergen açılırken inip bitmiş olabilir (ikisi de zaten geçtiyse bir şey yapmaz).
+    if not xtts_was_installed and SETTINGS["xtts_kurulu"]:
+        # Doğal ses, Mergen açılırken (sihirbazdan sonra) inip bitmiş olabilir.
         threading.Thread(target=xtts_ready, daemon=True).start()
     setup.resume_background()
     # Panelden yapay zekâ değişince yenisi buraya konur; döngü her soruda buradan okur.
