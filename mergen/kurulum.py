@@ -253,6 +253,10 @@ class Setup:
         routes[("POST", "/kurulum/baslat")] = self.start
         routes[("POST", "/kurulum/piper")] = self.fall_back_to_piper
         routes[("POST", "/kurulum/simdi")] = self.open_now
+        routes[("POST", "/kurulum/tekrar")] = self.retry
+        # Son işi yeniden başlatan işlev ("Tekrar dene") ve bitince ekranın köşesinde gösterilecek yazı.
+        self._retry = None
+        self.done_message = ""
 
     # --- Ekranın sordukları ------------------------------------------------------------------------------------
 
@@ -285,7 +289,39 @@ class Setup:
     def progress(self) -> dict:
         background = self.status in ("kuruluyor", "hata") and self.core_ready.is_set()
         return {"durum": self.status, "adimlar": self.steps, "hata": self.error, "arka_plan": background,
-                "secim_bekliyor": self.awaiting_choice, "acildi": self.core_ready.is_set()}
+                "secim_bekliyor": self.awaiting_choice, "acildi": self.core_ready.is_set(), "mesaj": self.done_message}
+
+    def retry(self, body: dict) -> dict:
+        if self._retry and not (self._thread and self._thread.is_alive()):
+            self._retry()
+        return self.progress()
+
+    def download_whisper(self, name: str, on_ready) -> str:
+        """Ayarlardan konuşma tanıma modeli değişti: model inmemişse indirme ekranın köşesinde ilerlemeyle görünür, inince
+        on_ready yükler. Başka bir indirme sürüyorsa beklemesi söylenir (dönen uyarı); sorun yoksa boş."""
+        if self._thread and self._thread.is_alive():
+            return "Şu an başka bir indirme sürüyor; o bitince yeniden seçin."
+        step = self._step("whisper_ek", "Konuşma tanıma indiriliyor", background=True)
+        self.steps, self.status, self.error = [step], "kuruluyor", ""
+        self.done_message = "Konuşma tanıma hazır ✓"
+        self._retry = lambda: self.download_whisper(name, on_ready)
+        self._whisper_name = name
+
+        def run() -> None:
+            try:
+                self._do(step)
+                on_ready()
+                self.status = "bitti"
+            except Exception as error:
+                log(f"konuşma tanıma indirilemedi: {error!r}")
+                step["durum"] = "hata"
+                self.status, self.error = "hata", str(error)
+            self._push(force=True)
+
+        self._thread = threading.Thread(target=run, daemon=True)
+        self._thread.start()
+        self._push(force=True)
+        return ""
 
     def test_microphone(self, body: dict) -> dict:
         """Seçilen mikrofonu açar, seviyesini ekrana yollar ("mikseviye"): kullanıcı konuşunca çubuk oynar."""
@@ -352,6 +388,8 @@ class Setup:
                 self.steps.append(self._step("coqui", "Doğal ses için gerekli yazılım kuruluyor (2/2)", background=True))
             self.steps.append(self._step("xtts", "Doğal ses indiriliyor", background=True))
         self.status, self.error = "kuruluyor", ""
+        self.done_message = "Doğal ses hazır ✓" if xtts else ""
+        self._retry = lambda: self.start({})
         log(f"kurulum başladı: {SETTINGS['beyin']}, ses {SETTINGS['ses_motoru']}, whisper {SETTINGS['whisper_model']}, "
             f"{'tam yetki' if SETTINGS['tam_yetki'] else 'sınırlı'}, {self.hardware}")
         self._thread = threading.Thread(target=self._run, daemon=True)
@@ -494,6 +532,9 @@ class Setup:
 
     def _install_piper(self, report) -> None:
         hf_download(PIPER_REPO, report, files=[PIPER_MODEL, PIPER_MODEL + ".json"])
+
+    def _install_whisper_ek(self, report) -> None:
+        hf_download(WHISPER_REPOS[self._whisper_name], report, allow=WHISPER_FILES)
 
     def _install_whisper(self, report) -> None:
         if SETTINGS["whisper_model"] != WAKE_MODEL:

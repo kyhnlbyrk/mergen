@@ -36,6 +36,7 @@ PIPER_MODEL = "tr/tr_TR/dfki/medium/tr_TR-dfki-medium.onnx"
 # 1, "Mêrgen" 8'de 5 doğru duyuldu. Sadece seslendirilen metinde değişir, ekranda "Mergen" kalır. Piper doğru okuyor.
 SPOKEN_NAME = re.compile(r"\bMergen", re.IGNORECASE)
 XTTS_REPO = "tts-hub/XTTS-v2"
+DEFAULT_SPEAKER = "Damien Black"  # Kayahan 58 konuşmacıyı dinleyip bunu seçti (2026-10-23)
 XTTS_IGNORE = ["samples/*", "dvae.pth"]
 
 
@@ -63,10 +64,21 @@ class XttsEngine:
         self.model = self.tts.synthesizer.tts_model
         self.rate = 24000
         # Sesin özellikleri bir kez çıkarılır (her parçada yeniden hesaplanmaz).
+        self.set_speaker(SETTINGS["ses"])
+        log(f"ses: XTTS ({self.gpu or 'sadece işlemci'}, {self.speaker})")
+
+    @property
+    def speakers(self) -> list[str]:
+        """Hazır konuşmacılar (58); varsayılan Damien Black başta, gerisi alfabetik."""
+        names = sorted(self.model.speaker_manager.speakers)
+        return [DEFAULT_SPEAKER] + [n for n in names if n != DEFAULT_SPEAKER]
+
+    def set_speaker(self, name: str) -> None:
+        """Konuşmacıyı değiştirir: sesin özellikleri hazır, model yeniden yüklenmez (anında)."""
         speakers = self.model.speaker_manager.speakers
-        name = SETTINGS["ses"] if SETTINGS["ses"] in speakers else "Damien Black"
-        self.gpt_latent, self.speaker_embedding = speakers[name]["gpt_cond_latent"], speakers[name]["speaker_embedding"]
-        log(f"ses: XTTS ({self.gpu or 'sadece işlemci'}, {name})")
+        self.speaker = name if name in speakers else DEFAULT_SPEAKER
+        voice = speakers[self.speaker]
+        self.gpt_latent, self.speaker_embedding = voice["gpt_cond_latent"], voice["speaker_embedding"]
 
     def wake(self) -> None:
         if self.gpu:
@@ -294,6 +306,17 @@ class Voice:
                     engine.wake()
             log(f"doğal sese geçildi ({time.time() - started:.1f} sn)")
         self.new_voice = announce
+
+    def speakers(self) -> list[str]:
+        """Doğal sesin konuşmacıları (hafif seste ya da doğal ses henüz yüklenmediyse boş)."""
+        return self.engine.speakers if isinstance(self.engine, XttsEngine) else []
+
+    def set_speaker_voice(self, name: str) -> None:
+        """Ayarlardan konuşmacı seçildi. Konuşma sürerken değişmesin diye konuşmanın bitmesi beklenir."""
+        with self._lock:
+            if isinstance(self.engine, XttsEngine):
+                self.engine.set_speaker(name)
+                log(f"konuşmacı: {self.engine.speaker}")
 
     def switch_to_piper(self) -> None:
         """Ayarlardan hafif ses seçildi: Piper'a geçer, XTTS'nin tuttuğu ekran kartı belleği boşalır."""

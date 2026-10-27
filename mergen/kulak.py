@@ -46,9 +46,10 @@ BASE_WORDS = ["Mergen", "Claude", "ChatGPT", "Gemini", "Spotify", "Steam", "YouT
 # Uyanmayı dinleyen model (her zaman bu; seçilen model sadece asıl konuşma için). Kurulumda bu da indirilir.
 WAKE_MODEL = "small"
 WHISPER_MODELS = {
-    "small": "Hızlı — günlük konuşma için",
-    "medium": "Dengeli — daha doğru (1,5 GB indirilir)",
-    "large-v3-turbo": "En doğru — en yavaş (1,6 GB indirilir)",
+    # Ayarlar panelindeki adlar. Boyut yazılmaz: inmemişse indirme ekranın köşesinde boyutuyla görünür.
+    "small": "Hızlı",
+    "medium": "Dengeli",
+    "large-v3-turbo": "En doğru",
 }
 
 # Mergen konuşurken kullanıcı konuşursa susup dinler. Mergen'in kendi sesi hoparlörden mikrofona sızar: her konuşmanın

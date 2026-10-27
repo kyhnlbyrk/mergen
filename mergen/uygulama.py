@@ -36,6 +36,8 @@ def connect_settings(screen: Screen, voice: Voice, ears: Ears, brain_holder: lis
             "tam_yetki": SETTINGS["tam_yetki"],
             "ses_motoru": SETTINGS["ses_motoru"], "ses_motorlari": VOICE_ENGINES,
             "xtts_kurulu": SETTINGS["xtts_kurulu"], "xtts_boyut": setup.sizes()["xtts"],
+            # Doğal sesin konuşmacısı (liste doğal ses yüklüyken dolu; hafif seste konuşmacı seçilmez).
+            "konusmaci": SETTINGS["ses"], "konusmacilar": voice.speakers(),
             "ses_seviyesi": SETTINGS["ses_seviyesi"], "sessizlik_suresi": SETTINGS["sessizlik_suresi"],
             "hoparlor": device_name(voice.speaker, output=True), "hoparlorler": list_devices(output=True),
             "mikrofon": SETTINGS["mikrofon"] or device_name(None, output=False), "mikrofonlar": list_devices(output=False),
@@ -46,6 +48,7 @@ def connect_settings(screen: Screen, voice: Voice, ears: Ears, brain_holder: lis
 
     def set_(changes: dict) -> dict:
         restart = False
+        warning = ""
         if changes.get("beyin") in BRAINS and changes["beyin"] != SETTINGS["beyin"]:
             SETTINGS["beyin"], SETTINGS["model"] = changes["beyin"], ""
             brain_holder[0] = create_brain()
@@ -73,9 +76,15 @@ def connect_settings(screen: Screen, voice: Voice, ears: Ears, brain_holder: lis
             elif changes.get("xtts_lisans"):
                 # Doğal ses henüz indirilmedi: kurulum arka planda indirir (ekranın köşesinde ilerleme), bitince geçer.
                 setup.start({"ses_motoru": "xtts", "xtts_lisans": True})
-        if changes.get("whisper_model") in WHISPER_MODELS and changes["whisper_model"] != SETTINGS["whisper_model"]:
-            SETTINGS["whisper_model"] = changes["whisper_model"]
-            threading.Thread(target=ears.load_whisper, args=(SETTINGS["whisper_model"],), daemon=True).start()
+        if changes.get("konusmaci") in voice.speakers() and changes["konusmaci"] != SETTINGS["ses"]:
+            SETTINGS["ses"] = changes["konusmaci"]
+            threading.Thread(target=voice.set_speaker_voice, args=(SETTINGS["ses"],), daemon=True).start()
+        name = changes.get("whisper_model")
+        if name in WHISPER_MODELS and name != SETTINGS["whisper_model"]:
+            # Model inmemişse indirme ekranın köşesinde ilerlemeyle görünür; inince yüklenir. O zamana kadar eskisi çalışır.
+            warning = setup.download_whisper(name, on_ready=lambda: ears.load_whisper(name))
+            if not warning:
+                SETTINGS["whisper_model"] = name
         if "kelimeler" in changes:
             SETTINGS["kelimeler"] = ", ".join(w.strip() for w in str(changes["kelimeler"]).split(",") if w.strip())
         if changes.get("araya_girme") in BARGE_LEVELS:
@@ -96,7 +105,7 @@ def connect_settings(screen: Screen, voice: Voice, ears: Ears, brain_holder: lis
             f"söz kesme {SETTINGS['araya_girme']}, ses {SETTINGS['ses_seviyesi']:.2f}, "
             f"sessizlik {SETTINGS['sessizlik_suresi']:.1f} sn, hoparlör '{device_name(voice.speaker, output=True)}', "
             f"mikrofon '{SETTINGS['mikrofon'] or 'varsayılan'}'")
-        return get()
+        return {**get(), "uyari": warning}
 
     def test() -> None:
         asleep = screen.state == "uyku"

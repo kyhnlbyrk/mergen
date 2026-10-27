@@ -181,6 +181,11 @@
       <select id="sesMotoru"></select>
       <div class="not" id="sesNotu"></div>
     </div>
+    <div class="satir" id="konusmaciSatiri">
+      <label>KONUŞMACI</label>
+      <select id="konusmaci"></select>
+      <div class="not">Seçince hemen geçerim; aşağıdaki "Sesi dene" ile dinleyebilirsiniz.</div>
+    </div>
     <div class="satir">
       <label>SES SEVİYESİ <span id="seviyeYazi">1,0×</span></label>
       <input id="seviye" type="range" min="0.3" max="3" step="0.1" value="1">
@@ -375,7 +380,7 @@ const kaydedildi = document.getElementById("kaydedildi");
 const modelSec = document.getElementById("model"), eforSec = document.getElementById("efor");
 const whisperSec = document.getElementById("whisperModel"), kelimeKutu = document.getElementById("kelimeler");
 const arayaGirme = document.getElementById("arayaGirme");
-const sesMotoru = document.getElementById("sesMotoru");
+const sesMotoru = document.getElementById("sesMotoru"), konusmaciSec = document.getElementById("konusmaci");
 let sonAyarlar = {};  // panelin son gösterdiği ayarlar
 const beyinSec = document.getElementById("beyin"), tamYetki = document.getElementById("tamYetki");
 // Değer → görünen ad sözlüğünden seçim listesi.
@@ -406,6 +411,9 @@ function ayarlariGoster(a) {
   doldurSozluk(beyinSec, a.beyinler, a.beyin); tamYetki.checked = a.tam_yetki;
   sonAyarlar = a;
   doldurSozluk(sesMotoru, a.ses_motorlari, a.ses_motoru);
+  // Konuşmacı sadece doğal seste seçilir (liste doğal ses yüklüyken gelir).
+  document.getElementById("konusmaciSatiri").style.display = a.konusmacilar.length ? "" : "none";
+  doldur(konusmaciSec, a.konusmacilar, a.konusmaci);
   document.getElementById("sesNotu").textContent = a.xtts_kurulu
     ? "Doğal ses insan gibi konuşur; hafif ses her bilgisayarda anında konuşur ama daha robotiktir."
     : "Doğal ses henüz indirilmedi; seçerseniz arka planda indirilir, bitince ona geçerim.";
@@ -413,8 +421,10 @@ function ayarlariGoster(a) {
 async function ayarGonder(degisiklik) {
   kaydedildi.textContent = "kaydediliyor…";
   const cevap = await fetch("/ayarlar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(degisiklik) });
-  ayarlariGoster(await cevap.json());
-  kaydedildi.textContent = "kaydedildi ✓";
+  const ayarlar = await cevap.json();
+  ayarlariGoster(ayarlar);
+  if (ayarlar.uyari) { kaydedildi.textContent = ""; alert(ayarlar.uyari); return; }
+  kaydedildi.textContent = degisiklik.whisper_model ? "konuşma tanıma hazırlanıyor (sol altta)" : "kaydedildi ✓";
   setTimeout(() => { kaydedildi.textContent = ""; }, 1500);
 }
 ayarDugme.addEventListener("click", async () => {
@@ -433,6 +443,7 @@ whisperSec.addEventListener("change", () => ayarGonder({ whisper_model: whisperS
 kelimeKutu.addEventListener("change", () => ayarGonder({ kelimeler: kelimeKutu.value }));
 arayaGirme.addEventListener("change", () => ayarGonder({ araya_girme: arayaGirme.value }));
 beyinSec.addEventListener("change", () => ayarGonder({ beyin: beyinSec.value }));
+konusmaciSec.addEventListener("change", () => ayarGonder({ konusmaci: konusmaciSec.value }));
 sesMotoru.addEventListener("change", () => {
   if (sesMotoru.value === "xtts" && !sonAyarlar.xtts_kurulu) {
     const boyut = (sonAyarlar.xtts_boyut / 1e9).toFixed(1).replace(".", ",");
@@ -681,7 +692,7 @@ async function kur() {
 function kurulumIlerleme(s) {
   ilerleme = s;
   if (ilerlemeEkranda) ilerlemeCiz();
-  arkaPlanCiz();
+  arkaPlanCiz(true);
 }
 function olcer(adim) {
   return el("div", { class: "olcer" + (adim.yuzde == null ? " belirsiz" : "") },
@@ -722,10 +733,10 @@ setInterval(() => {
   if (ilerleme && ilerleme.durum === "kuruluyor") { if (ilerlemeEkranda) ilerlemeCiz(); arkaPlanCiz(); }
 }, 1000);
 function hataDugmeleri(s) {
-  const arkaPlanHatasi = s.adimlar.some((a) => a.durum === "hata" && a.arka_plan);
+  const dogalSesHatasi = s.adimlar.some((a) => a.durum === "hata" && ["torch", "coqui", "xtts"].includes(a.id));
   return el("div", { class: "dugmeler" },
-    arkaPlanHatasi ? el("button", { class: "dugme ikincil", onclick: () => postla("/kurulum/piper") }, "Hafif sesle devam et") : null,
-    el("button", { class: "dugme ana", onclick: () => postla("/kurulum/baslat") }, "Tekrar dene"));
+    dogalSesHatasi ? el("button", { class: "dugme ikincil", onclick: () => postla("/kurulum/piper") }, "Hafif sesle devam et") : null,
+    el("button", { class: "dugme ana", onclick: () => postla("/kurulum/tekrar") }, "Tekrar dene"));
 }
 function ilerlemeCiz() {
   ilerlemeEkranda = true;
@@ -766,13 +777,16 @@ function ilerlemeCiz() {
   }
 }
 // Sihirbaz kapandıktan sonra doğal ses inerken sol altta küçük bir gösterge.
-function arkaPlanCiz() {
+// Arka plandaki iş: doğal ses ya da ayarlardan seçilen konuşma tanıma modeli. canli: olay şimdi geldi (sayfa açılışında
+// eski "bitti" durumu yeniden gösterilmesin).
+function arkaPlanCiz(canli = false) {
   const s = ilerleme;
   if (!s || kurulumKutu.classList.contains("acik")) return;
   const adim = s.adimlar.find((a) => a.arka_plan && a.durum !== "bitti");
   if (s.durum === "bitti") {
-    if (arkaPlanKutu.classList.contains("acik")) {
-      arkaPlanKutu.replaceChildren("Doğal ses hazır ✓");
+    if (s.mesaj && (canli || arkaPlanKutu.classList.contains("acik"))) {
+      arkaPlanKutu.classList.add("acik");
+      arkaPlanKutu.replaceChildren(s.mesaj);
       setTimeout(() => arkaPlanKutu.classList.remove("acik"), 4000);
     }
     return;
@@ -780,7 +794,7 @@ function arkaPlanCiz() {
   if (!s.arka_plan || !adim) return;
   arkaPlanKutu.classList.add("acik");
   arkaPlanKutu.replaceChildren(
-    el("div", {}, s.durum === "hata" ? "Doğal ses kurulamadı: " + s.hata
+    el("div", {}, s.durum === "hata" ? "İndirme tamamlanamadı: " + s.hata
       : adim.ad + (adim.yuzde != null ? ` · %${Math.round(adim.yuzde)}` : gecenSure(adim) ? ` · ${gecenSure(adim)}` : "…")),
     s.durum === "hata" ? hataDugmeleri(s) : olcer(adim));
 }
