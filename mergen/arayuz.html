@@ -418,16 +418,30 @@ function ayarlariGoster(a) {
   doldurSozluk(beyinSec, a.beyinler, a.beyin); tamYetki.checked = a.tam_yetki;
   sonAyarlar = a;
   doldurSozluk(sesMotoru, a.ses_motorlari, a.ses_motoru);
-  // Konuşmacı sadece doğal seste seçilir; liste doğal ses belleğe yüklenince gelir.
-  document.getElementById("konusmaciSatiri").style.display = a.ses_motoru === "xtts" ? "" : "none";
-  doldur(konusmaciSec, a.konusmacilar.length ? a.konusmacilar : [a.konusmaci], a.konusmaci);
-  konusmaciSec.disabled = !a.konusmacilar.length;
-  document.getElementById("konusmaciNotu").textContent = a.konusmacilar.length
-    ? 'Seçince hemen geçerim; aşağıdaki "Sesi dene" ile dinleyebilirsiniz.'
-    : "Doğal sesim hazırlanınca seçilebilir; paneli sonra yeniden açın.";
+  konusmaciGoster(a);
   document.getElementById("sesNotu").textContent = a.xtts_kurulu
     ? "Doğal ses insan gibi konuşur; hafif ses her bilgisayarda anında konuşur ama daha robotiktir."
     : "Doğal ses henüz indirilmedi; seçerseniz arka planda indirilir, bitince ona geçerim.";
+}
+// Konuşmacı sadece doğal seste seçilir; liste doğal ses belleğe yüklenince gelir. Yüklenirken panel açıksa
+// iki saniyede bir sorulur, hazır olunca liste kendiliğinden açılır.
+let konusmaciZamanlayici = null;
+function konusmaciGoster(a) {
+  clearTimeout(konusmaciZamanlayici);
+  document.getElementById("konusmaciSatiri").style.display = a.ses_motoru === "xtts" && a.xtts_kurulu ? "" : "none";
+  if (document.activeElement !== konusmaciSec)
+    doldur(konusmaciSec, a.konusmacilar.length ? a.konusmacilar : [a.konusmaci], a.konusmaci);
+  konusmaciSec.disabled = a.konusmaci_durumu !== "hazir";
+  const not = document.getElementById("konusmaciNotu");
+  if (a.konusmaci_durumu === "hazir") not.textContent = 'Seçince hemen geçerim; aşağıdaki "Sesi dene" ile dinleyebilirsiniz.';
+  else if (a.konusmaci_durumu === "hata") not.textContent = "Doğal sesim açılamadı, şimdilik hafif sesle konuşuyorum.";
+  else {
+    not.innerHTML = '<span class="donen">◌</span> Doğal sesim yükleniyor; bitince buradan seçebilirsiniz.';
+    if (a.ses_motoru === "xtts" && a.xtts_kurulu)
+      konusmaciZamanlayici = setTimeout(async () => {
+        if (ayarPanel.classList.contains("acik")) konusmaciGoster(await (await fetch("/ayarlar")).json());
+      }, 2000);
+  }
 }
 async function ayarGonder(degisiklik) {
   kaydedildi.textContent = "kaydediliyor…";

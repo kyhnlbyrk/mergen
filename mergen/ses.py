@@ -190,6 +190,8 @@ class Voice:
         self.awake = False
         # Ses Piper'dan XTTS'ye geçti, henüz söylenmedi.
         self.new_voice = False
+        # Doğal ses yüklenemediyse sebebi (ayarlar paneli "yükleniyor" yerine bunu gösterir).
+        self.xtts_error = None
         # Mergen hafif sesle hemen açılır. Doğal ses (seçildiyse ve kuruluysa) arka planda yüklenir ve hazır olunca
         # sessizce ona geçilir: yüklemesi Windows'ta ekran kartıyla ~40 sn, Mac'te daha uzun sürüyor; açılış onu beklerse
         # pencere dakikalarca "hazırlanıyor" kalıyordu.
@@ -299,13 +301,21 @@ class Voice:
                 engine = XttsEngine()
             except Exception as error:
                 log(f"XTTS açılamadı ({error!r}), Piper'la devam")
+                self.xtts_error = repr(error)
                 return
+            self.xtts_error = None
             with self._lock:
                 self.engine = engine
                 if self.awake:
                     engine.wake()
             log(f"doğal sese geçildi ({time.time() - started:.1f} sn)")
         self.new_voice = announce
+
+    def speakers_state(self) -> str:
+        """Konuşmacı listesinin durumu: hazir, yukleniyor (doğal ses arka planda belleğe alınıyor) ya da hata."""
+        if isinstance(self.engine, XttsEngine):
+            return "hazir"
+        return "hata" if self.xtts_error else "yukleniyor"
 
     def speakers(self) -> list[str]:
         """Doğal sesin konuşmacıları (hafif seste ya da doğal ses henüz yüklenmediyse boş)."""

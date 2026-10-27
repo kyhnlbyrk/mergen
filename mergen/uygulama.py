@@ -37,7 +37,7 @@ def connect_settings(screen: Screen, voice: Voice, ears: Ears, brain_holder: lis
             "ses_motoru": SETTINGS["ses_motoru"], "ses_motorlari": VOICE_ENGINES,
             "xtts_kurulu": SETTINGS["xtts_kurulu"], "xtts_boyut": setup.sizes()["xtts"],
             # Doğal sesin konuşmacısı (liste doğal ses yüklüyken dolu; hafif seste konuşmacı seçilmez).
-            "konusmaci": SETTINGS["ses"], "konusmacilar": voice.speakers(),
+            "konusmaci": SETTINGS["ses"], "konusmacilar": voice.speakers(), "konusmaci_durumu": voice.speakers_state(),
             "ses_seviyesi": SETTINGS["ses_seviyesi"], "sessizlik_suresi": SETTINGS["sessizlik_suresi"],
             "hoparlor": device_name(voice.speaker, output=True), "hoparlorler": list_devices(output=True),
             "mikrofon": SETTINGS["mikrofon"] or device_name(None, output=False), "mikrofonlar": list_devices(output=False),
