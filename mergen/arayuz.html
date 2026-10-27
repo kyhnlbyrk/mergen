@@ -22,11 +22,11 @@
   #durum { position: absolute; left: 0; right: 0; bottom: 34px; text-align: center; letter-spacing: 0.35em;
     font-size: 13px; color: var(--muted); text-transform: uppercase; transition: color 0.4s; }
   #kapat { position: absolute; top: 18px; right: 18px; border: 1px solid rgba(255, 120, 110, 0.35);
-    background: rgba(40, 12, 12, 0.6); color: #ff9a90; font: 12px "Segoe UI", sans-serif; letter-spacing: 0.15em;
+    background: rgba(40, 12, 12, 0.6); color: #ff9a90; font: 12px "Segoe UI", -apple-system, system-ui, sans-serif; letter-spacing: 0.15em;
     padding: 6px 12px; border-radius: 14px; cursor: pointer; }
   #kapat:hover { background: rgba(80, 20, 20, 0.85); }
   #ayarDugme { position: absolute; top: 18px; left: 18px; border: 1px solid var(--line); background: rgba(12, 30, 44, 0.7);
-    color: var(--mergen); font: 12px "Segoe UI", sans-serif; letter-spacing: 0.15em; padding: 6px 12px;
+    color: var(--mergen); font: 12px "Segoe UI", -apple-system, system-ui, sans-serif; letter-spacing: 0.15em; padding: 6px 12px;
     border-radius: 14px; cursor: pointer; z-index: 2; }
   #ayarDugme:hover, #ayarDugme.acik { background: rgba(20, 50, 70, 0.95); }
   #ayarlar { position: absolute; top: 56px; left: 18px; width: 300px; display: none; z-index: 2;
@@ -37,17 +37,24 @@
   #ayarlar label { display: block; font-size: 11px; letter-spacing: 0.18em; color: var(--muted); margin: 0 0 6px; }
   #ayarlar .satir { margin-bottom: 16px; }
   #ayarlar select { width: 100%; background: #0d1d2a; color: var(--text); border: 1px solid var(--line); border-radius: 6px;
-    padding: 6px 8px; font: 13px "Segoe UI", sans-serif; }
+    padding: 6px 8px; font: 13px "Segoe UI", -apple-system, system-ui, sans-serif; }
+  /* Mac'te açılır kutular yerel gri görünüme bürünüyordu: kendi görünümümüz ve okumuz. */
+  #ayarlar select, .kart select { -webkit-appearance: none; appearance: none; padding-right: 28px; cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%237fdcff' stroke-width='1.5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 10px center; }
+  #ayarlar select:disabled { opacity: 0.5; cursor: default; }
+  #ayarlar select:focus, .kart select:focus { outline: none; border-color: rgba(127, 220, 255, 0.6); }
+  #ayarlar input[type=checkbox] { accent-color: #7fdcff; }
   #ayarlar input[type=range] { width: 100%; accent-color: #7fdcff; }
   #ayarlar textarea { width: 100%; box-sizing: border-box; min-height: 52px; resize: vertical; background: #0d1d2a;
-    color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font: 13px "Segoe UI", sans-serif; }
+    color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font: 13px "Segoe UI", -apple-system, system-ui, sans-serif; }
   #ayarlar .not { font-size: 11px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
   #ayarlar .kutucuk { display: flex; align-items: center; gap: 8px; font-size: 12px; letter-spacing: 0.1em; cursor: pointer; }
   #ayarlar hr { border: none; border-top: 1px solid var(--line); margin: 4px 0 16px; }
   .kesildi-not { font-size: 11px; color: var(--muted); font-style: italic; margin-top: 4px; }
   #seviyeYazi, #sessizlikYazi { float: right; color: var(--mergen); letter-spacing: 0; }
   #dene { width: 100%; border: 1px solid rgba(127, 220, 255, 0.4); background: rgba(20, 50, 70, 0.8); color: var(--mergen);
-    font: 13px "Segoe UI", sans-serif; padding: 8px; border-radius: 8px; cursor: pointer; }
+    font: 13px "Segoe UI", -apple-system, system-ui, sans-serif; padding: 8px; border-radius: 8px; cursor: pointer; }
   #dene:hover { background: rgba(30, 70, 95, 0.95); }
   #kaydedildi { font-size: 11px; color: var(--muted); text-align: center; margin-top: 8px; min-height: 14px; }
   #ad { position: absolute; left: 0; right: 0; top: 26px; text-align: center; letter-spacing: 0.6em; font-size: 14px;
@@ -62,7 +69,7 @@
   #akis::-webkit-scrollbar-thumb { background: rgba(127, 220, 255, 0.35); border-radius: 4px; }
   #akis::-webkit-scrollbar-thumb:hover { background: rgba(127, 220, 255, 0.6); }
   #asagi { position: absolute; right: 18px; bottom: 16px; display: none; border: 1px solid var(--line);
-    background: rgba(12, 30, 44, 0.95); color: var(--mergen); font: 12px "Segoe UI", sans-serif; padding: 6px 12px;
+    background: rgba(12, 30, 44, 0.95); color: var(--mergen); font: 12px "Segoe UI", -apple-system, system-ui, sans-serif; padding: 6px 12px;
     border-radius: 14px; cursor: pointer; }
   #asagi:hover { background: rgba(20, 50, 70, 0.95); }
   .mesaj { margin: 0 0 14px; animation: gel 0.35s ease-out; }
@@ -98,7 +105,7 @@
   .rozet.uyari { background: rgba(255, 180, 80, 0.15); color: #ffc070; }
   .rozet.gri { background: rgba(255, 255, 255, 0.06); color: var(--muted); }
   .dinle { margin-left: auto; border: 1px solid var(--line); background: transparent; color: var(--mergen); border-radius: 12px;
-    padding: 3px 10px; font: 12px "Segoe UI", sans-serif; cursor: pointer; }
+    padding: 3px 10px; font: 12px "Segoe UI", -apple-system, system-ui, sans-serif; cursor: pointer; }
   .dinle.caliyor { background: var(--mergen); color: #04121c; border-color: var(--mergen); font-weight: 600;
     animation: nabiz 1.1s ease-in-out infinite; }
   @keyframes nabiz { 0%, 100% { box-shadow: 0 0 0 0 rgba(127, 220, 255, 0.55); } 50% { box-shadow: 0 0 0 6px rgba(127, 220, 255, 0); } }
@@ -110,7 +117,7 @@
   .komut code { flex: 1; font: 12px Consolas, "SF Mono", monospace; color: var(--text); background: #0d1d2a; border-radius: 6px;
     padding: 8px 10px; overflow-x: auto; white-space: nowrap; }
   .kart select { width: 100%; background: #0d1d2a; color: var(--text); border: 1px solid var(--line); border-radius: 8px;
-    padding: 8px 10px; font: 14px "Segoe UI", sans-serif; margin-bottom: 8px; }
+    padding: 8px 10px; font: 14px "Segoe UI", -apple-system, system-ui, sans-serif; margin-bottom: 8px; }
   .kart label.etiket { display: block; font-size: 11px; letter-spacing: 0.18em; color: var(--muted); margin: 14px 0 6px; }
   .kart label.onay { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--text); margin: -4px 0 18px;
     line-height: 1.5; cursor: pointer; }
@@ -119,7 +126,7 @@
   .olcer div { height: 100%; width: 0; background: linear-gradient(90deg, #4fb8e0, #7fdcff); transition: width 0.08s; }
   .dugmeler { display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px; flex-wrap: wrap; }
   .dugme { border: 1px solid rgba(127, 220, 255, 0.4); background: rgba(20, 50, 70, 0.8); color: var(--mergen); border-radius: 10px;
-    padding: 9px 20px; font: 14px "Segoe UI", sans-serif; cursor: pointer; }
+    padding: 9px 20px; font: 14px "Segoe UI", -apple-system, system-ui, sans-serif; cursor: pointer; }
   .dugme:hover:not(:disabled) { background: rgba(30, 70, 95, 0.95); }
   .dugme:disabled { opacity: 0.4; cursor: default; }
   .dugme.ana { background: #4fb8e0; color: #04121c; border-color: #4fb8e0; font-weight: 600; }
@@ -184,7 +191,7 @@
     <div class="satir" id="konusmaciSatiri">
       <label>KONUŞMACI</label>
       <select id="konusmaci"></select>
-      <div class="not">Seçince hemen geçerim; aşağıdaki "Sesi dene" ile dinleyebilirsiniz.</div>
+      <div class="not" id="konusmaciNotu"></div>
     </div>
     <div class="satir">
       <label>SES SEVİYESİ <span id="seviyeYazi">1,0×</span></label>
@@ -411,9 +418,13 @@ function ayarlariGoster(a) {
   doldurSozluk(beyinSec, a.beyinler, a.beyin); tamYetki.checked = a.tam_yetki;
   sonAyarlar = a;
   doldurSozluk(sesMotoru, a.ses_motorlari, a.ses_motoru);
-  // Konuşmacı sadece doğal seste seçilir (liste doğal ses yüklüyken gelir).
-  document.getElementById("konusmaciSatiri").style.display = a.konusmacilar.length ? "" : "none";
-  doldur(konusmaciSec, a.konusmacilar, a.konusmaci);
+  // Konuşmacı sadece doğal seste seçilir; liste doğal ses belleğe yüklenince gelir.
+  document.getElementById("konusmaciSatiri").style.display = a.ses_motoru === "xtts" ? "" : "none";
+  doldur(konusmaciSec, a.konusmacilar.length ? a.konusmacilar : [a.konusmaci], a.konusmaci);
+  konusmaciSec.disabled = !a.konusmacilar.length;
+  document.getElementById("konusmaciNotu").textContent = a.konusmacilar.length
+    ? 'Seçince hemen geçerim; aşağıdaki "Sesi dene" ile dinleyebilirsiniz.'
+    : "Doğal sesim hazırlanınca seçilebilir; paneli sonra yeniden açın.";
   document.getElementById("sesNotu").textContent = a.xtts_kurulu
     ? "Doğal ses insan gibi konuşur; hafif ses her bilgisayarda anında konuşur ama daha robotiktir."
     : "Doğal ses henüz indirilmedi; seçerseniz arka planda indirilir, bitince ona geçerim.";
