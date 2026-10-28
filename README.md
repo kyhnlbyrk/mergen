@@ -1,96 +1,113 @@
 # Mergen
 
-Türklerin JARVIS'i: Mergen. Türkçe konuşan, tamamen sesle yönetilen bir yapay zekâ asistanı. "Mergen uyan" demeniz
-yeterli: uygulamalarınızı açar, müziğinizi çalar, oyununuzu başlatır, bilgisayarınızı sizin yerinize kullanır.
+Türklerin JARVIS'i: Türkçe konuşan, tamamen sesle yönetilen bir yapay zekâ asistanı. "Mergen uyan" demeniz yeterli;
+sorularınızı cevaplar, uygulamalarınızı açar, müziğinizi çalar, oyununuzu başlatır, bilgisayarınızı sizin yerinize
+kullanır. Size "beyim" diye hitap eder.
 
-API anahtarı gerekmez. Mergen, aboneliğinizle giriş yaptığınız resmi yapay zekâ aracını kullanır. Ses tanıma ve
-konuşma tamamen sizin bilgisayarınızda çalışır.
+- **API anahtarı gerekmez.** Mergen, zaten kullandığınız yapay zekâ aboneliğinizle çalışır.
+- **Sesiniz bilgisayarınızda kalır.** Konuşma tanıma ve Mergen'in sesi tamamen sizin bilgisayarınızda çalışır.
+- **Kurulumu kolay.** Tek komut; gerisini ilk açılışta ekrandaki sihirbaz sorar.
+- **Açık kaynak ve ücretsiz** (MIT).
 
-> **Durum:** geliştirme aşamasında. Windows'ta ve Claude ile çalışıyor; macOS desteği denenmekte. ChatGPT (Codex) ve
-> Gemini yolda.
+> **Durum:** Windows ve macOS'ta, Claude ile çalışıyor. ChatGPT ve Gemini desteği yolda.
 
-## Nasıl çalışır?
+## Neler gerekir?
 
-```
-mikrofon → Whisper (yerel ses tanıma) → "Mergen uyan" → yapay zekâ (abonelikle) → XTTS / Piper (yerel ses) → hoparlör
-```
+- Windows 10/11 ya da macOS 11 ve sonrası
+- Bir **Claude aboneliği** (Pro ya da Max)
+- Mikrofon ve hoparlör (ya da kulaklık)
+- Diskte 2-6 GB boş alan (seçtiğiniz sese ve konuşma tanımaya göre)
 
-Ekranda JARVIS tarzı bir top ve konuşmanın yazılı hâli görünür. Ayarlar panelinden yapay zekâyı, sesi, mikrofonu ve
-hoparlörü değiştirebilirsiniz.
-
-| Yapay zekâ | Gereken araç | Durum |
-|---|---|---|
-| Claude | [Claude Code](https://claude.com/claude-code) (Claude aboneliği) | Çalışıyor |
-| ChatGPT | Codex CLI (ChatGPT aboneliği) | Yolda |
-| Gemini | Gemini CLI (Google hesabı) | Yolda |
-
-## Sesli komutlar
-
-- **"Mergen uyan"**: uyanır, sonrasında anahtar sözcük olmadan sohbet sürer.
-- **"Görüşürüz"**, **"uyu"**: uykuya geçer.
-- **"Yeni konuşma"**: önceki konuşmayı unutur.
-- **"Kapat kendini"**: tamamen kapanır.
-
-Mergen konuşurken araya girerseniz susar ve sizi dinler.
+Python ya da başka bir şey kurmanıza gerek yok.
 
 ## Kurulum
 
-Önce kullanacağınız yapay zekânın aracını kurup aboneliğinizle giriş yapın (Claude için
-[Claude Code](https://claude.com/claude-code), ardından `claude auth login`). Sonra tek komut yeter; Python kurulu
-olmasa da olur.
-
-**Windows** (PowerShell):
+**Windows:** Başlat menüsüne "PowerShell" yazıp açın, şu komutu yapıştırıp Enter'a basın:
 
 ```powershell
 irm https://raw.githubusercontent.com/kyhnlbyrk/mergen/main/install.ps1 | iex
 ```
 
-**macOS** (Terminal):
+**macOS:** Cmd + Boşluk ile "Terminal" yazıp açın, şu komutu yapıştırıp Enter'a basın:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/kyhnlbyrk/mergen/main/install.sh | bash
 ```
 
-Kurulum soru sormaz: Mergen'i indirir, masaüstüne ve Başlat menüsüne (macOS'ta Launchpad'e) kısayol koyar ve açar.
-Aynı komutu yeniden çalıştırmak Mergen'i günceller; ayarlarınız ve indirilen modeller korunur.
+Kurulum birkaç dakika sürer ve adım adım ilerlemesini gösterir. Bitince Mergen kendiliğinden açılır; sonra masaüstündeki
+kısayoldan (macOS'ta Launchpad ya da Spotlight'tan "Mergen") açabilirsiniz.
 
-İlk açılışta ekranda bir kurulum sihirbazı çıkar. Bilgisayarınızı (işletim sistemi, ekran kartı, disk) kendisi tanır ve
-size sadece tercihlerinizi sorar: yapay zekâ, ses (örnekleri dinleyerek), konuşma tanıma, yetki, mikrofon ve hoparlör.
-Gerekenleri kendisi indirir ve ilerlemeyi gösterir. Doğal ses (XTTS) seçerseniz Mergen önce hafif sesle açılır, doğal
-ses arka planda iner ve bitince ona geçer.
+### İlk açılış
 
-Seçtiğiniz yapay zekânın aracı kurulu ve giriş yapılmış olmalı. Sihirbaz bunu denetler; değilse hangi komutları
-çalıştıracağınızı gösterir.
+Ekranda bir kurulum sihirbazı çıkar. Bilgisayarınızı kendisi tanır, size yalnızca tercihlerinizi sorar:
 
-NVIDIA ekran kartı varsa konuşma tanıma ve doğal ses ekran kartında çalışır, gerekenleri sihirbaz kendisi indirir.
+1. **Yapay zekâ:** Mergen'in beyni Claude'dur. Claude bilgisayarınızda kurulu değilse sihirbaz nasıl kuracağınızı adım
+   adım gösterir.
+2. **Ses:** Doğal ses (insana çok yakın) ya da hafif ses (her bilgisayarda hızlı). İkisini de dinleyip seçebilirsiniz.
+3. **Konuşma tanıma:** Sizi ne kadar iyi anlasın. Sihirbaz bilgisayarınıza en uygun olanı önerir.
+4. **Yetki:** Mergen bilgisayarınızda ne kadar serbest olsun (aşağıda "Güvenlik ve gizlilik").
+5. **Mikrofon ve hoparlör.**
 
-### Geliştiriciler için
+Gerekenler indirilirken ilerleme ekranda görünür. Doğal sesi seçtiyseniz isterseniz onu bekleyebilir ya da hafif sesle
+hemen başlayabilirsiniz; doğal ses inince Mergen kendiliğinden ona geçer.
 
-```bash
-git clone https://github.com/kyhnlbyrk/mergen.git
-cd mergen
-python -m venv .venv
-.venv\Scripts\pip install -e .
-.venv\Scripts\python -m mergen
-```
+### Güncelleme
 
-## Dosyalar nerede?
+Kurulum komutunu yeniden çalıştırmanız yeterli. Ayarlarınız ve indirilen modeller korunur.
 
-Mergen'in kendisi, ayarlar, kayıtlar, notlar ve indirilen modeller tek bir klasörde durur. Kaldırmak için bu klasörü
-ve kısayolu (macOS'ta `~/Applications/Mergen.app`) silmeniz yeterli:
+## Kullanım
+
+- **"Mergen uyan"**: uyanır. Sonrasında anahtar sözcük olmadan sohbet sürer.
+- **"Görüşürüz"**, **"uyu"**: uykuya geçer.
+- **"Yeni konuşma"**: önceki konuşmayı unutur.
+- **"Kapat kendini"**: tamamen kapanır.
+
+Mergen konuşurken araya girerseniz susar ve sizi dinler. Ekranın sol üstündeki **⚙ AYARLAR** panelinden yapay zekâyı,
+sesi, konuşmacıyı, konuşma tanımayı, mikrofonu ve hoparlörü değiştirebilirsiniz.
+
+## Güvenlik ve gizlilik
+
+- Varsayılan olarak **sınırlı moddadır**: sohbet eder, dosyalarınızı okuyup arayabilir ama bilgisayarınızda hiçbir şeyi
+  değiştirmez, program çalıştırmaz.
+- Bilgisayarınızı kullanması için ayarlardan **tam yetki** açılır. Tam yetkide de geri alınamayan işlerden önce (silme,
+  satın alma, mesaj gönderme, sistem ayarı) sesli "evet" demenizi bekler.
+- Sesiniz bilgisayarınızdan çıkmaz: yazıya bilgisayarınızda çevrilir. Yapay zekâya (Claude'a) yalnızca söylediklerinizin
+  yazılı hâli gider.
+
+## Sorun mu var?
+
+Mergen'in kayıtları veri klasöründe durur:
 
 - Windows: `%LOCALAPPDATA%\Mergen`
 - macOS: `~/Library/Application Support/Mergen`
 
-## Güvenlik
+Bir hata bildirmek isterseniz [GitHub'da bir kayıt (issue) açın](https://github.com/kyhnlbyrk/mergen/issues) ve bu
+klasördeki `mergen.log` ile `konsol.log` dosyalarını ekleyin.
 
-Varsayılan olarak **sınırlı moddadır**: yapay zekâ dosya okuyup arayabilir ama komut çalıştıramaz. Bilgisayarı
-kullanması için ayarlardan **tam yetki** açılır. Tam yetkide de geri alınamayan işlerden önce (silme, satın alma,
-mesaj gönderme, sistem ayarı) sesli "evet" bekler.
+## Kaldırma
+
+Mergen'in kendisi, ayarlarınız ve indirilen modeller tek bir klasörde durur; sistemde başka iz bırakmaz.
+
+**Windows** (PowerShell):
+
+```powershell
+Remove-Item -Recurse -Force "$env:LOCALAPPDATA\Mergen", "$([Environment]::GetFolderPath('Desktop'))\Mergen.lnk", "$([Environment]::GetFolderPath('Programs'))\Mergen.lnk"
+```
+
+**macOS** (Terminal):
+
+```bash
+rm -rf ~/Applications/Mergen.app "$HOME/Library/Application Support/Mergen"
+```
+
+## Katkıda bulunmak
+
+Mergen açık kaynak; her katkıya açığız. Nasıl katkıda bulunacağınızı ve projenin teknik yapısını
+[CONTRIBUTING.md](CONTRIBUTING.md) anlatıyor.
 
 ## Lisans
 
 Mergen'in kodu [MIT](LICENSE) lisanslıdır.
 
-XTTS v2 ses modeli Mergen'le dağıtılmaz; kurulumda sizin onayınızla indirilir ve kendi lisansına
-([Coqui Public Model License](https://tts-hub.github.io/cpml), yalnızca ticari olmayan kullanım) tabidir.
+Doğal ses modeli (XTTS v2) Mergen'le birlikte dağıtılmaz; kurulumda sizin onayınızla indirilir ve kendi lisansına
+([Coqui Public Model License](https://tts-hub.github.io/cpml)) tabidir: yalnızca ticari olmayan kullanım.
