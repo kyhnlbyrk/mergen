@@ -810,7 +810,7 @@ function ilerlemeCiz() {
   if (s.secim_bekliyor && !s.acildi && s.durum !== "hata" && !dogalSesBekleniyor) {
     kurulumKart.replaceChildren(
       el("h1", {}, "Hafif sesim hazır, doğal sesim iniyor."),
-      el("p", { class: "alt" }, "İsterseniz hemen başlayabiliriz, ama doğal sesim inene kadar sesim mekanik olacak; beğenmeyebilirsiniz. Önerim birkaç dakika beklemeniz: doğal sesim inince kendiliğimden açılırım."),
+      el("p", { class: "alt" }, "İsterseniz hemen başlayabiliriz, ama doğal sesim inene kadar sesim mekanik olacak; beğenmeyebilirsiniz. Önerim beklemeniz: kalan süre aşağıda görünüyor, doğal sesim inince kendiliğimden açılırım."),
       ...s.adimlar.filter((a) => a.arka_plan).map((a) => adimCiz(a, false)),
       el("div", { class: "dugmeler" },
         el("button", { class: "dugme ikincil", onclick: () => postla("/kurulum/simdi") }, "Hafif sesle şimdi başla"),
@@ -823,7 +823,8 @@ function ilerlemeCiz() {
   const aciklama = s.acildi
     ? (arkadaSuren ? "Açılıyorum. Doğal ses arka planda indirilmeye devam ediyor; bitince o sese kendiliğimden geçerim." : "Açılıyorum.")
     : bekleniyor ? "İner inmez açılacağım; ilk sözüm doğal sesimle olacak."
-    : "İnternet bağlantınız koparsa kaldığım yerden devam ederim. Pencereyi kapatsanız bile bir sonraki açılışta sürdürürüm.";
+    : "İnme süresi internet hızınıza göre değişir; kalan süre her adımın altında görünür. Bağlantınız koparsa kaldığım "
+      + "yerden devam ederim; pencereyi kapatsanız bile bir sonraki açılışta sürdürürüm.";
   const parca = [el("h1", {}, baslik), el("p", { class: "alt" }, aciklama), ...s.adimlar.map((a) => adimCiz(a, s.acildi))];
   if (s.durum === "hata") parca.push(el("p", { class: "hata-metni" }, s.hata), hataDugmeleri(s));
   else if (bekleniyor) parca.push(el("div", { class: "dugmeler" },

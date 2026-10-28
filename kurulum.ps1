@@ -97,7 +97,7 @@ if (-not (Test-Path (Join-Path $Ortam "Scripts\python.exe"))) {
 }
 $Python = Join-Path $Ortam "Scripts\python.exe"
 $Pythonw = Join-Path $Ortam "Scripts\pythonw.exe"
-Adim 4 "Mergen ve kütüphaneleri kuruluyor (ilk kurulumda birkaç dakika sürebilir)"
+Adim 4 "Mergen ve kütüphaneleri kuruluyor (internet hızınıza göre birkaç dakika ile 15 dakika arası sürebilir)"
 Calistir $Uv @("pip", "install", "--python", $Python, "--quiet", "--reinstall-package", "mergen", $KodKlasoru) "Mergen kurulamadı."
 Remove-Item -Recurse -Force $Gecici -ErrorAction SilentlyContinue
 

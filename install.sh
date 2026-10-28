@@ -20,32 +20,32 @@ ORTAM="$UYGULAMA/.venv"
 adim() { printf '  \033[36m[%s/5] %s\033[0m\n' "$1" "$2"; }
 
 # Uzun süren komut: çıktısı gizli çalışır, altında dönen işaret, geçen süre ve indirilen MB görünür (kullanıcı takıldı
-# sanmasın). Yüzde gösterilmez: uv toplam ilerleme vermiyor, tahmini yüzde yanıltıyordu. MB ağ sayacından: uv paketleri
-# önce önbelleğe indirip ortama en sonda kopyaladığı için ortamın boyutu dakikalarca yerinde sayıyordu.
-alinan() {
-  # Bilgisayarın ağdan aldığı toplam bayt (geri döngü hariç).
-  if [[ -r /proc/net/dev ]]; then
-    awk -F'[: ]+' 'NR > 2 && $2 != "lo" { s += $3 } END { printf "%d", s }' /proc/net/dev
-  else
-    netstat -ibn 2>/dev/null | awk '$3 ~ /^<Link/ && $1 !~ /^lo/ { s += $(NF - 4) } END { printf "%d", s }'
-  fi
+# sanmasın). Yüzde gösterilmez: uv toplam ilerleme vermiyor, tahmini yüzde yanıltıyordu.
+# MB, uv'nin indirdiklerini koyduğu klasörlerin (paket önbelleği ve Python) büyümesinden: kurulan ortamın boyutu
+# dakikalarca yerinde sayıyordu (uv önce önbelleğe indirip en sonda kopyalıyor); ağ sayacı ise macOS'ta bütün ağ
+# arayüzlerini ve arka plan trafiğini topladığı için 9 kat şişiyordu (145 MB'a 1263 MB).
+INDIRME_KLASORLERI=()
+indirilen_kb() {
+  (( ${#INDIRME_KLASORLERI[@]} )) || { printf 0; return; }
+  du -sk "${INDIRME_KLASORLERI[@]}" 2>/dev/null | awk '{ s += $1 } END { printf "%d", s }'
 }
 calistir() {
   local hata_metni="$1"; shift
   local gunluk; gunluk="$(mktemp)"
   "$@" >"$gunluk" 2>&1 </dev/null &
-  local pid=$! bas=$SECONDS i=0 isaret='|/-\' ilk; ilk="$(alinan)"
+  local pid=$! bas=$SECONDS i=0 isaret='|/-\' ilk mb=0; ilk="$(indirilen_kb)"
   while kill -0 "$pid" 2>/dev/null; do
-    printf '\r        %s %d:%02d · %s MB indirildi   ' "${isaret:i%4:1}" $(( (SECONDS - bas) / 60 )) $(( (SECONDS - bas) % 60 )) \
-      $(( ($(alinan) - ilk) / 1048576 ))
+    # du'yu her dönüşte değil 2 sn'de bir çalıştır (büyük önbellekte yavaş olabilir).
+    if (( i % 8 == 0 )); then mb=$(( ($(indirilen_kb) - ilk) / 1024 )); (( mb < 0 )) && mb=0; fi
+    printf '\r        %s %d:%02d · %s MB indirildi   ' "${isaret:i%4:1}" $(( (SECONDS - bas) / 60 )) $(( (SECONDS - bas) % 60 )) "$mb"
     i=$((i + 1)); sleep 0.25
   done
   if ! wait "$pid"; then
     printf '\n'; tail -20 "$gunluk" >&2; rm -f "$gunluk"; hata "$hata_metni"
   fi
   rm -f "$gunluk"
-  printf '\r        \033[32m✓ %d:%02d · %s MB indirildi\033[0m   \n' $(( (SECONDS - bas) / 60 )) $(( (SECONDS - bas) % 60 )) \
-    $(( ($(alinan) - ilk) / 1048576 ))
+  mb=$(( ($(indirilen_kb) - ilk) / 1024 )); (( mb < 0 )) && mb=0
+  printf '\r        \033[32m✓ %d:%02d · %s MB indirildi\033[0m   \n' $(( (SECONDS - bas) / 60 )) $(( (SECONDS - bas) % 60 )) "$mb"
 }
 hata() { printf '  \033[31m%s\033[0m\n' "$1" >&2; exit 1; }
 
@@ -63,6 +63,8 @@ if [[ ! -x "$UV" ]]; then
   [[ -x "$UV" ]] || hata "uv kurulamadı. İnternet bağlantınızı denetleyip yeniden deneyin."
 fi
 
+INDIRME_KLASORLERI=("$("$UV" cache dir 2>/dev/null)" "$("$UV" python dir 2>/dev/null)")
+
 # 2. Mergen'in kodu: GitHub'dan en son sürüm (ya da MERGEN_KAYNAK ile verilen yerel klasör).
 adim 2 "Mergen indiriliyor"
 GECICI="$(mktemp -d)"
@@ -78,7 +80,7 @@ fi
 adim 3 "Python hazırlanıyor"
 mkdir -p "$UYGULAMA"
 [[ -x "$ORTAM/bin/python" ]] || calistir "Python ortamı oluşturulamadı." "$UV" venv "$ORTAM" --python 3.12 --quiet
-adim 4 "Mergen ve kütüphaneleri kuruluyor (ilk kurulumda birkaç dakika sürebilir)"
+adim 4 "Mergen ve kütüphaneleri kuruluyor (internet hızınıza göre birkaç dakika ile 15 dakika arası sürebilir)"
 calistir "Mergen kurulamadı." "$UV" pip install --python "$ORTAM/bin/python" --quiet --reinstall-package mergen "$KOD"
 SIMGE_KLASORU="$("$ORTAM/bin/python" -c 'import mergen, pathlib; print(pathlib.Path(mergen.__file__).parent / "araclar")')"
 

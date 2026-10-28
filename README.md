@@ -45,7 +45,7 @@ irm https://raw.githubusercontent.com/kyhnlbyrk/mergen/main/install.ps1 | iex
 curl -fsSL https://raw.githubusercontent.com/kyhnlbyrk/mergen/main/install.sh | bash
 ```
 
-Kurulum birkaç dakika sürer ve adım adım ilerlemesini gösterir. Bitince Mergen kendiliğinden açılır; sonra masaüstündeki
+Kurulum internet hızınıza göre birkaç dakika ile 15 dakika arası sürer ve adım adım ilerlemesini gösterir. Bitince Mergen kendiliğinden açılır; sonra masaüstündeki
 kısayoldan (macOS'ta Launchpad ya da Spotlight'tan "Mergen") açabilirsiniz.
 
 ### İlk açılış
@@ -59,7 +59,8 @@ Ekranda bir kurulum sihirbazı çıkar. Bilgisayarınızı kendisi tanır, size 
 4. **Yetki:** Mergen bilgisayarınızda ne kadar serbest olsun (aşağıda "Güvenlik ve gizlilik").
 5. **Mikrofon ve hoparlör.**
 
-Gerekenler indirilirken ilerleme ekranda görünür. Doğal sesi seçtiyseniz isterseniz onu bekleyebilir ya da hafif sesle
+Gerekenler indirilirken ilerleme ve kalan süre ekranda görünür; doğal ses büyük bir indirme olduğu için yavaş
+bağlantılarda uzun sürebilir. Doğal sesi seçtiyseniz isterseniz onu bekleyebilir ya da hafif sesle
 hemen başlayabilirsiniz; doğal ses inince Mergen kendiliğinden ona geçer.
 
 ### Güncelleme
