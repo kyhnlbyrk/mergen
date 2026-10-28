@@ -1,5 +1,7 @@
 """Ses aygıtları. Her platformda tek bir ses arayüzü kullanılır (Windows: MME, her örnekleme hızını kabul eder; macOS:
 Core Audio); aygıt adın bir parçasıyla bulunur. Sistemin varsayılan aygıtlarına dokunulmaz, sadece Mergen bunları kullanır."""
+import threading
+
 import sounddevice as sd
 
 from .kayit import log
@@ -18,6 +20,9 @@ def _devices(output: bool) -> list[tuple[int, str]]:
     return [(i, name) for i, name in found if not any(h in name for h in HIDDEN)]
 
 
+_reported: set[str] = set()  # bulunamadığı kayda bir kez yazılsın (mikrofon beklerken 2 sn'de bir aranıyor)
+
+
 def find_device(name: str, output: bool):
     """Adında name geçen ilk aygıt. Ad boşsa ya da bulunamazsa None (sistemin varsayılanı)."""
     if not name:
@@ -25,8 +30,31 @@ def find_device(name: str, output: bool):
     for index, device in _devices(output):
         if name.lower() in device.lower():
             return index
-    log(f"ses aygıtı bulunamadı: '{name}', varsayılan kullanılıyor")
+    if name not in _reported:
+        _reported.add(name)
+        log(f"ses aygıtı bulunamadı: '{name}', varsayılan kullanılıyor")
     return None
+
+
+# Ses kütüphanesi (PortAudio) aygıt listesini açılışta bir kez okur: sonradan takılan kulaklığı ya da mikrofonu görmez.
+# Liste ancak kütüphane yeniden başlatılınca tazelenir; bu da açık akışları geçersiz kılar. Bu yüzden yenilemeyi sadece
+# mikrofonu tutan Ears yapar (önce kendi akışını kapatıp sonra açar); hoparlörü bulamayan ses bunu buradan ister.
+_refresh_wanted = threading.Event()
+
+
+def request_refresh() -> None:
+    _refresh_wanted.set()
+
+
+def refresh_wanted() -> bool:
+    return _refresh_wanted.is_set()
+
+
+def refresh() -> None:
+    """Aygıt listesini tazeler. Açık bir ses akışı varken çağrılmamalı."""
+    _refresh_wanted.clear()
+    sd._terminate()
+    sd._initialize()
 
 
 def list_devices(output: bool) -> list[str]:

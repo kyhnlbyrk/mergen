@@ -42,6 +42,7 @@ def connect_settings(screen: Screen, voice: Voice, ears: Ears, brain_holder: lis
             "hoparlor": device_name(voice.speaker, output=True), "hoparlorler": list_devices(output=True),
             "mikrofon": SETTINGS["mikrofon"] or device_name(None, output=False), "mikrofonlar": list_devices(output=False),
             "whisper_model": SETTINGS["whisper_model"], "whisper_modeller": WHISPER_MODELS,
+            "donanim": setup.hardware,  # konuşma tanıma önerisi ekran kartına göre değişir
             "kelimeler": ", ".join(user_words()), "temel_kelimeler": ", ".join(BASE_WORDS),
             "araya_girme": SETTINGS["araya_girme"], "araya_girme_secenekleri": {k: v[0] for k, v in BARGE_LEVELS.items()},
         }

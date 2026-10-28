@@ -10,7 +10,7 @@ import numpy as np
 import sounddevice as sd
 
 from .ayarlar import SETTINGS
-from .cihazlar import find_device
+from .cihazlar import find_device, request_refresh
 from .kayit import log
 
 # Konuşma parçası en fazla bu kadar karakter (XTTS'nin Türkçe sınırı 226). Sıcaklık ve çeşitlilik varsayılana yakın:
@@ -187,6 +187,8 @@ class Voice:
         self.interrupted = threading.Event()
         self.barge = None
         self.speaker = find_device(SETTINGS["hoparlor"], output=True)
+        # Hoparlör bulunamadıysa aygıt listesi tazelenince ayardaki ad yeniden aranır.
+        self.refind_speaker = False
         self.awake = False
         # Ses Piper'dan XTTS'ye geçti, henüz söylenmedi.
         self.new_voice = False
@@ -214,13 +216,21 @@ class Voice:
             return False
         log(f"söylüyor: {text}")
         with self._lock:
+            if self.refind_speaker:
+                self.refind_speaker = False
+                self.speaker = find_device(SETTINGS["hoparlor"], output=True)
             self.interrupted.clear()
             if self.barge:
                 self.barge.begin()
             previous = self.screen.state
             self.screen.set_state("konusuyor")
             self.screen.message("mergen", text)
-            self._speak(text)
+            try:
+                self._speak(text)
+            except sd.PortAudioError as error:
+                # Hoparlör yok ya da çıkarılmış: cevap ekranda yazılı kalır; aygıt listesi tazelenip bir sonrakinde
+                # yeniden denenir (Mergen çökmesin).
+                self._speaker_missing(error)
             self.screen.set_state(previous)
             if self.interrupted.is_set():
                 log("sözü kesildi, dinliyor")
@@ -341,8 +351,18 @@ class Voice:
     def beep(self) -> None:
         t = np.linspace(0, 0.12, int(22050 * 0.12), False)
         tone = (np.sin(2 * np.pi * 880 * t) * 0.25 * 32767).astype(np.int16)
-        sd.play(boost(tone), 22050, device=self.speaker)
-        sd.wait()
+        try:
+            sd.play(boost(tone), 22050, device=self.speaker)
+            sd.wait()
+        except sd.PortAudioError as error:
+            self._speaker_missing(error)
+
+    def _speaker_missing(self, error: Exception) -> None:
+        log(f"hoparlör bulunamadı ({error}); cevap sadece ekranda")
+        request_refresh()
+        # Tazelenince aygıt sıra numaraları değişir: bir sonraki konuşmada ayardaki ad yeniden aranır.
+        self.speaker = None
+        self.refind_speaker = True
 
 
 def rms(data: bytes) -> float:

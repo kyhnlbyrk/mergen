@@ -17,13 +17,17 @@ from faster_whisper import WhisperModel
 from faster_whisper.vad import VadOptions, get_speech_timestamps
 
 from .ayarlar import SETTINGS
-from .cihazlar import find_device
+from .cihazlar import find_device, refresh, refresh_wanted
 from .kayit import log
 from .ses import LEVEL_STEP, envelope, rms
 from .yollar import WINDOWS
 
 RATE = 16000
 INF = float("inf")
+# Mikrofondan bu kadar süre hiç ses parçası gelmezse çıkarılmış sayılır (açıkken sessizlikte bile parça gelir).
+MIC_TIMEOUT = 3.0
+# Mikrofon yokken aygıtlar bu aralıkla yeniden taranır.
+MIC_RETRY = 2.0
 BLOCK = 4000  # 0,25 sn
 # Uyanma: "Mergen uyan". Whisper "Mergen"i farklı yazabiliyor; kısa bir konuşma parçasında "uyan" geçmesi yeter.
 WAKE = re.compile(r"\buyan(sana|ın)?\b")
@@ -144,18 +148,63 @@ class Ears:
         # yetiştiremeyince sesler kuyrukta birikip "Mergen uyan" geç algılanıyordu.
         self.wake_whisper = self.whisper if SETTINGS["whisper_model"] == WAKE_MODEL else _load_whisper(WAKE_MODEL)
         self.stream = None
-        self.open_microphone(SETTINGS["mikrofon"])
         self.threshold = MIN_SPEECH_RMS
-        self.calibrate()
+        self.wait_for_microphone()
 
     def open_microphone(self, name: str) -> None:
         """Mikrofonu açar; ayarlardan değişince yeniden çağrılır."""
-        if self.stream:
-            self.stream.stop()
-            self.stream.close()
+        self.close_microphone()
         self.stream = sd.RawInputStream(samplerate=RATE, blocksize=BLOCK, dtype="int16", channels=1, callback=self._on_audio,
                                          device=find_device(name, output=False))
         self.stream.start()
+
+    def close_microphone(self) -> None:
+        if self.stream:
+            try:
+                self.stream.stop()
+                self.stream.close()
+            except sd.PortAudioError:
+                pass  # aygıt çıkarılmışsa kapatırken de hata verebiliyor
+            self.stream = None
+
+    def wait_for_microphone(self) -> None:
+        """Mikrofonu açar; yoksa (takılı değil ya da çıkarılmış) ekranda söyler ve takılana kadar aygıtları yeniden tarar.
+        Mikrofonsuz açılışta Mergen çöküyordu. Hoparlör aygıtları da bu sırada tazelenir."""
+        previous = self.screen.state
+        waiting = False
+        while True:
+            try:
+                if refresh_wanted():
+                    self.close_microphone()
+                    refresh()
+                self.open_microphone(SETTINGS["mikrofon"])
+                break
+            except sd.PortAudioError as error:
+                self.close_microphone()
+                if not waiting:
+                    log(f"mikrofon bulunamadı ({error}), takılması bekleniyor")
+                    self.screen.set_state("mikrofonsuz")
+                    waiting = True
+                time.sleep(MIC_RETRY)
+                refresh()
+        if waiting:
+            log("mikrofon bulundu")
+            self.screen.set_state(previous)
+        self.flush()
+        self.calibrate()
+
+    def _next_block(self) -> bytes | None:
+        """Mikrofondan sıradaki parça. Mikrofon çıkarıldıysa (parça gelmiyorsa) ya da hoparlör listesinin tazelenmesi
+        istendiyse mikrofonu yeniden açar ve None döner: kayıt baştan başlar."""
+        if refresh_wanted():
+            self.wait_for_microphone()
+            return None
+        try:
+            return self.audio.get(timeout=MIC_TIMEOUT)
+        except queue.Empty:
+            log("mikrofondan ses gelmiyor (çıkarılmış olabilir)")
+            self.wait_for_microphone()
+            return None
 
     def move_to_gpu(self) -> None:
         """Doğal ses için PyTorch arka planda kuruldu: işlemcide açılan Whisper artık ekran kartına geçebilir."""
@@ -195,7 +244,7 @@ class Ears:
             self.audio.put(block)
 
     def calibrate(self) -> None:
-        levels = [rms(self.audio.get()) for _ in range(8)]
+        levels = [rms(self.audio.get(timeout=MIC_TIMEOUT)) for _ in range(8)]
         self.threshold = max(MIN_SPEECH_RMS, float(np.median(levels)) * 3.0)
         log(f"gürültü eşiği {self.threshold:.0f}")
 
@@ -233,7 +282,9 @@ class Ears:
         spoken = 0.0
         seconds = BLOCK / RATE
         while True:
-            data = self.audio.get()
+            data = self._next_block()
+            if data is None:
+                return []  # mikrofon yeniden açıldı: yarım kalan kayıt atılır
             loud = rms(data) > self.threshold
             if not speaking:
                 waited += seconds

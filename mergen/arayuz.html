@@ -213,6 +213,7 @@
     <div class="satir">
       <label>KONUŞMA TANIMA</label>
       <select id="whisperModel"></select>
+      <div class="not" id="whisperNotu"></div>
     </div>
     <div class="satir">
       <label>ÖZEL KELİMELER</label>
@@ -251,6 +252,7 @@ function takipEt() {
 
 const DURUMLAR = {
   hazirlaniyor: { yazi: "hazırlanıyor…",        renk: [70, 120, 150],  hiz: 0.6,  parlak: 0.45 },
+  mikrofonsuz: { yazi: "mikrofon bulunamadı — takınca devam ederim", renk: [255, 120, 110], hiz: 0.2, parlak: 0.45 },
   uyku:      { yazi: "uykuda — “Mergen uyan”", renk: [70, 120, 150],  hiz: 0.15, parlak: 0.35 },
   dinliyor:  { yazi: "dinliyorum",            renk: [90, 210, 255],  hiz: 0.5,  parlak: 0.8 },
   dusunuyor: { yazi: "düşünüyorum",           renk: [255, 180, 80],  hiz: 2.2,  parlak: 0.75 },
@@ -411,7 +413,12 @@ function ayarlariGoster(a) {
   sessizlikKaydirici.value = a.sessizlik_suresi; sessizlikGoster(a.sessizlik_suresi);
   doldur(hoparlorSec, a.hoparlorler, a.hoparlor); doldur(mikrofonSec, a.mikrofonlar, a.mikrofon);
   doldurSozluk(modelSec, a.modeller, a.model); doldurSozluk(eforSec, a.eforlar, a.efor);
-  doldurSozluk(whisperSec, a.whisper_modeller, a.whisper_model);
+  const rehber = tanimaRehberi(a.donanim);
+  doldurSozluk(whisperSec, Object.fromEntries(Object.entries(a.whisper_modeller).map(([ad, adi]) =>
+    [ad, ad === rehber.onerilen ? `${adi} (önerilen)` : adi])), a.whisper_model);
+  // Panelde kısa not: seçilenin açıklaması; önerilen değilse bu bilgisayar için önerileni de söyler.
+  document.getElementById("whisperNotu").textContent = (rehber.aciklama[a.whisper_model] || "") +
+    (a.whisper_model !== rehber.onerilen ? " " + rehber.oneriNotu : "");
   if (document.activeElement !== kelimeKutu) kelimeKutu.value = a.kelimeler;
   document.getElementById("temelKelimeler").textContent = "Zaten tanıdıkları: " + a.temel_kelimeler;
   doldurSozluk(arayaGirme, a.araya_girme_secenekleri, a.araya_girme);
@@ -492,11 +499,33 @@ const kurulumKutu = document.getElementById("kurulum"), kurulumKart = document.g
 const arkaPlanKutu = document.getElementById("arkaPlan");
 const SAYFALAR = ["hosgeldin", "beyin", "ses", "tanima", "yetki", "aygitlar", "ozet"];
 const WHISPER_ADLARI = { small: "Hızlı", medium: "Dengeli", "large-v3-turbo": "En doğru" };
-const WHISPER_ACIKLAMA = {
-  small: "Günlük konuşmayı rahatça anlar ve hemen cevap veririm. Çoğu kişi için en iyi seçim.",
-  medium: "Hızlı konuşmayı, teknik ve yabancı kelimeleri daha iyi anlarım; cevabım biraz gecikir.",
-  "large-v3-turbo": "En az yanıldığım seçenek. Güçlü bir bilgisayar ister; yavaş bilgisayarlarda her cümlenizden sonra birkaç saniye bekletebilirim.",
-};
+// Konuşma tanıma önerisi donanıma göre: NVIDIA kartında model ekran kartında çalışır, en doğrusu da anında cevap verir.
+// Mac'te ve kartsız bilgisayarda işlemcide çalışır (kullandığımız motor Apple çipinin grafik kısmını kullanamıyor):
+// büyük modeller her cümleden sonra birkaç saniye bekletir. Sihirbaz da ayarlar paneli de buradan okur.
+function tanimaRehberi(d) {
+  // Metinler son kullanıcı için: donanım terimi yok, sadece "sizin için ne demek" (hızlı mı, gecikir mi).
+  const kart = d.hizlandirma === "cuda", mac = d.hizlandirma === "mps";
+  const bilgisayar = mac ? "Mac'iniz" : "Bilgisayarınız";
+  const onerilen = kart ? "large-v3-turbo" : "small";
+  return {
+    kart, onerilen,
+    ozet: kart
+      ? "Bilgisayarınız bunun için yeterince güçlü: en doğru seçenekte bile gecikmeden cevap veririm."
+      : `${bilgisayar} için en uygunu Hızlı seçenek. Daha doğru seçenekler sizi daha iyi anlar ama her cümlenizden sonra birkaç saniye bekletebilir.`,
+    oneriNotu: `${bilgisayar} için önerilen: ${WHISPER_ADLARI[onerilen]}.`,
+    aciklama: {
+      small: kart
+        ? "Günlük konuşmayı anlarım ama diğerlerinden daha çok yanılırım. Bilgisayarınız daha doğrusunu rahatça kaldırır."
+        : `Günlük konuşmayı rahatça anlar ve hemen cevap veririm. ${bilgisayar} için en ideal seçenek.`,
+      medium: kart
+        ? "Hızlı konuşmayı, teknik ve yabancı kelimeleri daha iyi anlarım; yine de gecikmeden cevap veririm."
+        : "Hızlı konuşmayı, teknik ve yabancı kelimeleri daha iyi anlarım, ama cevabım biraz gecikebilir.",
+      "large-v3-turbo": kart
+        ? "En az yanıldığım seçenek ve bilgisayarınızda gecikmeden çalışır. Bilgisayarınız için en ideal seçenek."
+        : `En az yanıldığım seçenek, ama ${mac ? "Mac'inizde" : "bu bilgisayarda"} yavaş ve gecikmeli çalışabilir.`,
+    },
+  };
+}
 let kb = null;  // /kurulum cevabı: donanım, seçenekler, boyutlar
 let sayfa = 0, ilerleme = null, ilerlemeEkranda = false, kapanisPlanli = false, calan = null;
 let dogalSesBekleniyor = false;  // kullanıcı "Bekleyeceğim" dedi
@@ -529,7 +558,7 @@ async function kurulumBaslat() {
     return;
   }
   secim.ses_motoru = kb.donanim.hizlandirma === "cpu" ? "piper" : "xtts";
-  secim.whisper_model = kb.donanim.hizlandirma === "cuda" ? "large-v3-turbo" : "small";
+  secim.whisper_model = tanimaRehberi(kb.donanim).onerilen;
   secim.mikrofon = kb.mikrofon; secim.hoparlor = kb.hoparlor;
   ilerleme = kb.ilerleme;
   if (kb.gerekli) {
@@ -606,11 +635,11 @@ function beyinYardim(d) {
 const SAYFA = {
   hosgeldin: () => {
     const d = kb.donanim;
-    const kart = d.ekran_karti ? `${d.ekran_karti} ekran kartı` : "uygun ekran kartı bulunamadı, işlemciyle çalışacağım";
+    const kart = d.hizlandirma === "cuda" ? ` · ${d.ekran_karti} ekran kartı` : d.ekran_karti ? ` · ${d.ekran_karti}` : "";
     return [el("h1", {}, "Hoş geldiniz beyim."),
       el("p", { class: "alt" }, "Ben Mergen, sesli asistanınız. Kurulum birkaç dakika sürecek: size birkaç soru soracağım, gerisini ben halledeceğim."),
       el("div", { class: "bilgi" }, el("b", {}, "Bilgisayarınızı tanıdım: "),
-        `${d.isletim} · ${kart} · diskte ${gb(d.bos_alan)} boş alan`),
+        `${d.isletim}${kart} · diskte ${gb(d.bos_alan)} boş alan`),
       ileriGeri(true, "Başlayalım")];
   },
   beyin: () => {
@@ -625,9 +654,9 @@ const SAYFA = {
   },
   ses: () => {
     const h = kb.donanim.hizlandirma, cpu = h === "cpu";
-    const hiz = cpu ? "Bilgisayarınızda uygun bir ekran kartı bulunamadı; bu sesle her cevaba başlamam birkaç saniye gecikebilir."
-      : h === "mps" ? "Mac'inizin çipinde çalışır; cevaba başlamam bir iki saniye gecikebilir."
-      : "Ekran kartınız sayesinde gecikmeden konuşurum.";
+    const hiz = cpu ? "Bu bilgisayarda her cevaba başlamam birkaç saniye gecikebilir."
+      : h === "mps" ? "Mac'inizde cevaba başlamam bir iki saniye gecikebilir."
+      : "Bilgisayarınızda gecikmeden konuşurum.";
     return [el("h1", {}, "Sesim nasıl olsun?"),
       el("p", { class: "alt" }, "Size cevap verirken bu sesle konuşacağım. İkisini de dinleyip karar verebilirsiniz; sonradan ayarlardan değiştirebilirsiniz."),
       el("div", { class: "secenekler" },
@@ -643,19 +672,12 @@ const SAYFA = {
       ileriGeri(secim.ses_motoru === "piper" || secim.xtts_lisans)];
   },
   tanima: () => {
-    // NVIDIA kartında konuşma tanıma ekran kartında çalışır: en doğrusu da anında cevap verir. Kartsız bilgisayarda ve
-    // Mac'te işlemcide çalışır: büyük seçenekler her cümleden sonra bekletir.
-    const kart = kb.donanim.hizlandirma === "cuda", onerilen = kart ? "large-v3-turbo" : "small";
-    const aciklama = (ad) => kart && ad !== "small"
-      ? "Hızlı konuşmayı, teknik ve yabancı kelimeleri çok daha iyi anlarım. Ekran kartınız sayesinde bu da anında çalışır."
-      : WHISPER_ACIKLAMA[ad] || "";
+    const rehber = tanimaRehberi(kb.donanim);
     return [el("h1", {}, "Sizi ne kadar iyi anlayayım?"),
-      el("p", { class: "alt" }, kart
-        ? "Söylediklerinizi yazıya çeviren konuşma tanıma doğrudan bilgisayarınızda, ekran kartınızda çalışır; sesiniz hiçbir yere gönderilmez."
-        : "Söylediklerinizi yazıya çeviren konuşma tanıma doğrudan bilgisayarınızda çalışır; sesiniz hiçbir yere gönderilmez. Daha iyi anlayan seçenekler daha büyüktür ve daha güçlü bir bilgisayar ister."),
+      el("p", { class: "alt" }, "Söylediklerinizi yazıya çeviren konuşma tanıma doğrudan bilgisayarınızda çalışır; sesiniz hiçbir yere gönderilmez. " + rehber.ozet),
       el("div", { class: "secenekler" }, Object.keys(kb.whisper_modeller).map((ad) => secenek(secim.whisper_model === ad,
-        [WHISPER_ADLARI[ad] || ad, ad === onerilen ? rozet("ÖNERİLEN") : !kart && ad !== "small" ? rozet("YAVAŞ OLABİLİR", "uyari") : null],
-        `${aciklama(ad)} İndirme boyutu ${gb(kb.boyutlar.whisper[ad])}.`, () => { secim.whisper_model = ad; sayfaCiz(); }))),
+        [WHISPER_ADLARI[ad] || ad, ad === rehber.onerilen ? rozet("ÖNERİLEN") : !rehber.kart && ad !== "small" ? rozet("YAVAŞ OLABİLİR", "uyari") : null],
+        `${rehber.aciklama[ad] || ""} İndirme boyutu ${gb(kb.boyutlar.whisper[ad])}.`, () => { secim.whisper_model = ad; sayfaCiz(); }))),
       ileriGeri()];
   },
   yetki: () => [el("h1", {}, "Bilgisayarınızda ne kadar serbest olayım?"),
