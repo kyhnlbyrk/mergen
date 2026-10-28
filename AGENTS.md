@@ -71,6 +71,13 @@ Kullanıcıya ait her şey tek klasörde; Mergen kaldırılınca sistemde iz kal
 
 ### Kurulum
 
+- **Kurulum son yayımlanmış sürümü indirir, `main`'i değil.** `install.ps1` / `install.sh` GitHub API'sinden
+  (`releases/latest`) sürüm etiketini alır; yoksa `main`'e düşer. `MERGEN_SURUM` ile belirli bir sürüm ya da dal
+  verilebilir. Böylece `main`'e gönderilen yarım bir değişiklik kullanıcılara gitmez. Sürüm yayımlamak: `pyproject.toml`'daki
+  ve `install.sh`'taki (Info.plist) sürüm numarasını artırıp GitHub'da yeni bir Release açın (etiket `vX.Y.Z`).
+  Dikkat: `install.ps1` ve `install.sh`'ın kendisi hâlâ `main`'den gelir; bu iki dosyadaki değişiklik anında herkese
+  ulaşır.
+
 - **Terminal betiği soru sormaz; tercihleri ilk açılıştaki sihirbaz sorar.** Teknik olmayan kullanıcı için terminalde
   soru-cevap kötü bir deneyim.
 - **uv + Python 3.12, ortam veri klasöründe.** Kullanıcının sistem Python'una dokunulmaz; Python kurulu olmasa da olur.
@@ -113,6 +120,10 @@ Kullanıcıya ait her şey tek klasörde; Mergen kaldırılınca sistemde iz kal
 - **Teknik kelimeler `hotwords` ile** verilir (`BASE_WORDS` + kullanıcının "özel kelimeler"i).
 - **Uydurma altyazı süzgeci:** Whisper sessizlikte "İzlediğiniz için teşekkürler" gibi YouTube altyazıları uyduruyor;
   kısa ve bu kalıba uyan metinler atılır (`HALLUCINATION`).
+- **Şarkı sözü ve başka dil süzgeci** (`Ears._is_speech_for_us`): müzik çalarken şarkı sözleri kullanıcının konuşması
+  sanılıyordu. Harfsiz ya da tek harfli çıktılar ("...", "G- G- G-") atılır. Türkçe harf içermeyen metinlerde sesin dili
+  hızlı modelle tespit edilir; başka bir dil %80'in üstünde ve Türkçe %5'in altındaysa atılır. Eşik yüksek, çünkü kısa
+  ya da İngilizce kelimeli Türkçe de şaşırtıyor ("Evet." %40 İngilizce çıktı). Türkçe şarkı sözlerini ayıramaz.
 - **Konuşma bitti beklemesi** 1,6 sn (panelden 0,6-4). Cümle bağlaç ya da virgülle bitiyorsa 3 sn daha beklenir.
 
 ### Ses
@@ -149,6 +160,8 @@ gürültü eşiğinin birkaç katını art arda aşmalı ve Silero VAD konuşma 
   Her soruda yeniden açılmanın ~4 sn'si kalktı. Model, efor ya da yetki değişince oturum korunarak yeniden başlar.
 - **Kişilik `--append-system-prompt` ile verilir;** Claude Code çalışma klasörü dışındaki talimat dosyalarını yüklemiyor.
   Claude, kullanıcının kendi Claude ayarlarını ve belleğini de okur (bu beklenen bir davranış).
+- **Her mesaja o anki tarih ve saat eklenir** (`kisilik.with_time`: "[Şu an: 28 Ekim 2026 Çarşamba, 15:02] ...").
+  Yapay zekâ zamanı bilmiyor, konuşma geçmişinden tahmin ediyordu; yarım saat önceki konuşmaya "dünkü" dedi.
 - **Sınırlı mod varsayılan;** tam yetki `--dangerously-skip-permissions` demek. Tek güvence kişilikteki "geri alınamayan
   işlerden önce sesli evet" kuralı; bu kural zayıflatılmaz.
 - **Sihirbaz `claude auth status`** ile kurulu mu, giriş yapılmış mı denetler. `find_executable` PATH'e ek olarak
@@ -194,8 +207,7 @@ MERGEN_HOME=/tmp/mergen-deneme .venv/bin/python -m mergen
 - Mac için medya betiği (Windows'taki `medya.ps1`'in karşılığı, AppleScript ile); şu an Claude Spotify'ı her seferinde
   kendisi çözmeye çalışıyor ve yavaş.
 - Her konuşmada süre ölçümleri (tanıma, ilk cevap, ilk ses) kayda.
-- Müzik çalarken şarkı sözlerinin kullanıcı sanılmasını önleyen süzgeç (dil ve güven skoruyla).
-- Her soruya o anki tarih ve saati eklemek (Mergen "dün" ile "az önce"yi karıştırıyor).
+- Türkçe şarkı sözlerinin kullanıcı sanılmaması (dil süzgeci yalnızca yabancı dili ayırıyor).
 - Mikrofon beklenirken ayarlar panelinin de açılabilmesi.
 
 ## Güvenlik sınırları

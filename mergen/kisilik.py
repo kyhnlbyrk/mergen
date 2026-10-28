@@ -1,5 +1,7 @@
 """Mergen'in kişiliği ve bilgisayarı kullanma bilgisi: hangi yapay zekâ bağlanırsa bağlansın aynı sistem istemini alır.
 Platforma özgü kısım (Windows'ta PowerShell, macOS'ta osascript) burada seçilir."""
+import time
+
 from .ayarlar import SETTINGS
 from .yollar import MAC, NOTES_FILE, TOOLS, WINDOWS
 
@@ -20,6 +22,8 @@ Karakterin:
 - Kısa ve net konuş: çoğunlukla 1-3 cümle. Uzun bir şey anlatman gerekirse en önemlisini söyle, ayrıntısını isteyip
   istemediğini sor.
 - Markdown, madde işareti, tablo, kod bloğu, emoji ve dosya yolu kullanma; sayıları ve kısaltmaları okunur yaz.
+- Her mesajın başında "[Şu an: ...]" diye o anki tarih ve saat gelir; zamanı ("bugün", "dün", "az önce", "yarın")
+  oradan bil. Bu eki kullanıcı söylemedi, ona okuma.
 - Kullanıcıyı duyuyor ve ona sesle cevap veriyorsun; kendini öyle bil. "Duyuyor musun?" gibi sorulara "Evet beyim, gayet
   net duyuyorum." gibi cevap ver. Sözlerinin yazıya çevrilip sana metin olarak geldiğinden, ses alamadığından ya da bir
   dil modeli olduğundan bahsetme. Bir söz bozuk, yarım ya da anlamsız geldiyse "Tam seçemedim beyim, tekrar eder
@@ -52,6 +56,18 @@ MAC_TOOLS = """Bilgisayar macOS. Komutları zsh ile çalıştır.
 LIMITED = """Şu an sınırlı moddasın: dosya okuyup arayabilirsin ama komut çalıştıramazsın. Bilgisayarda bir iş istenirse
 bunu kısaca söyle; ekrandaki ayarlardan "tam yetki" açılabilir.
 """
+
+
+DAYS = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
+MONTHS = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
+
+
+def with_time(text: str) -> str:
+    """Söylenene o anki tarih ve saati ekler. Yapay zekâ zamanı bilmiyor, konuşma geçmişinden tahmin ediyordu: yarım saat
+    önce konuşulanı "dünkü" sandı. Türkçe adlar elle: sistemin dil ayarına bağlı kalmasın."""
+    now = time.localtime()
+    stamp = f"{now.tm_mday} {MONTHS[now.tm_mon - 1]} {now.tm_year} {DAYS[now.tm_wday]}, {now.tm_hour:02d}:{now.tm_min:02d}"
+    return f"[Şu an: {stamp}] {text}"
 
 
 def system_prompt() -> str:

@@ -41,6 +41,13 @@ MAX_UTTERANCE_SECONDS = 25.0
 # Whisper sessizlikte ya da gürültüde eğitim verisindeki video altyazılarını uydurur ("Altyazı M.K.", "İzlediğiniz
 # için teşekkürler"). Kısa bir parçanın tamamı buysa duyulmamış sayılır.
 HALLUCINATION = re.compile(r"altyazı|abone ol|izlediğiniz için|beğenmeyi unutmayın|bir sonraki videoda", re.I)
+# Müzik çalarken şarkı sözleri kullanıcının konuşması sanılıyordu ("I'm out again, were you?", "G- G- G-"). Türkçe harf
+# içermeyen metinlerde sesin dili hızlı modelle ayrıca tespit edilir; başka bir dil kesinse atılır. Eşikler ölçüldü
+# (2026-10-28): İngilizce konuşma ve şarkı sözleri %93-99 İngilizce, Türkçe %0; ama kısa ya da İngilizce kelimeli Türkçe
+# de şaşırtıyor ("Evet." %40 İngilizce, "Commit at ve push et." %43 Arnavutça), bu yüzden eşik yüksek.
+TURKISH_LETTERS = re.compile(r"[çğıöşüÇĞİÖŞÜ]")
+FOREIGN_SURE = 0.8
+TURKISH_UNLIKELY = 0.05
 # Konuşma eşiği (int16 RMS); ortam gürültüsüne göre başta ayarlanır.
 MIN_SPEECH_RMS = 500.0
 MIC_GAIN = 4.0
@@ -270,8 +277,26 @@ class Ears:
             more = self._record(CONTINUE_WAIT, MAX_UTTERANCE_SECONDS)
             if not more:
                 break
+            frames += more
             text = f"{text} {self._transcribe(more)}".strip()
+        if text and not self._is_speech_for_us(text, frames):
+            return ""
         return text
+
+    def _is_speech_for_us(self, text: str, frames: list[bytes]) -> bool:
+        """Söylenen gerçekten kullanıcının Türkçe konuşması mı? Anlamsız parçaları ("...", "G- G- G-") ve başka dildeki
+        sesi (çoğunlukla hoparlörden gelen şarkı sözü) ayıklar."""
+        if not any(len(word) >= 2 for word in re.findall(r"[^\W\d_]+", text)):
+            log(f"anlamsız tanıma atıldı: {text}")
+            return False
+        if TURKISH_LETTERS.search(text):
+            return True
+        audio = np.frombuffer(b"".join(frames), dtype=np.int16).astype(np.float32) / 32768.0
+        language, probability, probabilities = self.wake_whisper.detect_language(audio)
+        if language != "tr" and probability >= FOREIGN_SURE and dict(probabilities).get("tr", 0.0) < TURKISH_UNLIKELY:
+            log(f"başka dilde ses atıldı ({language} %{probability * 100:.0f}): {text}")
+            return False
+        return True
 
     def _record(self, start_timeout: float, max_seconds: float) -> list[bytes]:
         """Konuşma başlayınca kaydeder, sessizlik gelince durur. Konuşma hiç başlamazsa boş liste."""

@@ -12,6 +12,7 @@ from .beyin import BRAINS, create_brain
 from .cihazlar import device_name, list_devices
 from .kayit import log
 from .kulak import BARGE_LEVELS, BASE_WORDS, INF, WHISPER_MODELS, BargeDetector, Ears, user_words
+from .kisilik import with_time
 from .kurulum import Setup
 from .ses import Voice
 
@@ -210,7 +211,7 @@ def main(screen: Screen) -> None:
                 screen.set_state("dusunuyor")
                 ears.flush()
                 # Beklerken bir şey söylenmez: ekrandaki top turuncuya döner ("düşünüyorum").
-                reply = brains[0].ask(text)
+                reply = brains[0].ask(with_time(text))
                 screen.set_state("dinliyor")
                 interrupted = voice.say(reply)
                 ears.show_mic = True

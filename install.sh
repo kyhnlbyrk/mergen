@@ -72,7 +72,13 @@ trap 'rm -rf "$GECICI"' EXIT
 if [[ -n "${MERGEN_KAYNAK:-}" ]]; then
   KOD="$(cd "$MERGEN_KAYNAK" && pwd)"
 else
-  curl -fsSL "$DEPO/archive/refs/heads/main.tar.gz" | tar -xz -C "$GECICI"
+  # Son yayımlanmış sürüm (GitHub Releases): main'e gönderilen yarım bir değişiklik kullanıcılara gitmez. Bulunamazsa
+  # main. MERGEN_SURUM ile belirli bir sürüm ya da dal verilebilir.
+  # (curl'ün hatası yutulur: henüz sürüm yoksa adres 404 verir ve pipefail betiği durdururdu.)
+  SURUM="${MERGEN_SURUM:-$( { curl -fsS -m 15 https://api.github.com/repos/kyhnlbyrk/mergen/releases/latest 2>/dev/null || true; } \
+    | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -1)}"
+  SURUM="${SURUM:-main}"
+  curl -fsSL "$DEPO/archive/$SURUM.tar.gz" | tar -xz -C "$GECICI"
   KOD="$(find "$GECICI" -mindepth 1 -maxdepth 1 -type d | head -1)"
 fi
 

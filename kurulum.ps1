@@ -84,7 +84,9 @@ if ($Kaynak) {
     $KodKlasoru = (Resolve-Path $Kaynak).Path
 } else {
     $Zip = Join-Path $Gecici "mergen.zip"
-    Invoke-WebRequest "$Depo/archive/refs/heads/main.zip" -OutFile $Zip -UseBasicParsing
+    # Sürüm install.ps1'de seçilir (son yayımlanmış sürüm); bu betik doğrudan çalıştırılırsa main.
+    $Surum = if ($env:MERGEN_SURUM) { $env:MERGEN_SURUM } else { "main" }
+    Invoke-WebRequest "$Depo/archive/$Surum.zip" -OutFile $Zip -UseBasicParsing
     Expand-Archive $Zip -DestinationPath $Gecici
     $KodKlasoru = (Get-ChildItem $Gecici -Directory | Select-Object -First 1).FullName
 }
