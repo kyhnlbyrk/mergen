@@ -17,7 +17,36 @@ fi
 UYGULAMA="$VERI/uygulama"
 ORTAM="$UYGULAMA/.venv"
 
-adim() { printf '  \033[36m> %s\033[0m\n' "$1"; }
+adim() { printf '  \033[36m[%s/5] %s\033[0m\n' "$1" "$2"; }
+
+# Uzun süren komut: çıktısı gizli çalışır, altında dönen işaret, geçen süre ve indirilen MB görünür (kullanıcı takıldı
+# sanmasın). Yüzde gösterilmez: uv toplam ilerleme vermiyor, tahmini yüzde yanıltıyordu. MB ağ sayacından: uv paketleri
+# önce önbelleğe indirip ortama en sonda kopyaladığı için ortamın boyutu dakikalarca yerinde sayıyordu.
+alinan() {
+  # Bilgisayarın ağdan aldığı toplam bayt (geri döngü hariç).
+  if [[ -r /proc/net/dev ]]; then
+    awk -F'[: ]+' 'NR > 2 && $2 != "lo" { s += $3 } END { printf "%d", s }' /proc/net/dev
+  else
+    netstat -ibn 2>/dev/null | awk '$3 ~ /^<Link/ && $1 !~ /^lo/ { s += $(NF - 4) } END { printf "%d", s }'
+  fi
+}
+calistir() {
+  local hata_metni="$1"; shift
+  local gunluk; gunluk="$(mktemp)"
+  "$@" >"$gunluk" 2>&1 </dev/null &
+  local pid=$! bas=$SECONDS i=0 isaret='|/-\' ilk; ilk="$(alinan)"
+  while kill -0 "$pid" 2>/dev/null; do
+    printf '\r        %s %d:%02d · %s MB indirildi   ' "${isaret:i%4:1}" $(( (SECONDS - bas) / 60 )) $(( (SECONDS - bas) % 60 )) \
+      $(( ($(alinan) - ilk) / 1048576 ))
+    i=$((i + 1)); sleep 0.25
+  done
+  if ! wait "$pid"; then
+    printf '\n'; tail -20 "$gunluk" >&2; rm -f "$gunluk"; hata "$hata_metni"
+  fi
+  rm -f "$gunluk"
+  printf '\r        \033[32m✓ %d:%02d · %s MB indirildi\033[0m   \n' $(( (SECONDS - bas) / 60 )) $(( (SECONDS - bas) % 60 )) \
+    $(( ($(alinan) - ilk) / 1048576 ))
+}
 hata() { printf '  \033[31m%s\033[0m\n' "$1" >&2; exit 1; }
 
 printf '\n  \033[36mM E R G E N  kuruluyor\033[0m\n\n'
@@ -28,33 +57,33 @@ curl -s -m 2 -X POST http://127.0.0.1:8765/kapat >/dev/null 2>&1 && sleep 3 || t
 # 1. uv: Python'u ve paketleri kuran araç (Python kurulu olmasa da kendisi indirir).
 UV="$(command -v uv || true)"
 [[ -z "$UV" ]] && UV="$HOME/.local/bin/uv"
+adim 1 "Kurulum aracı (uv) hazırlanıyor"
 if [[ ! -x "$UV" ]]; then
-  adim "Kurulum aracı (uv) indiriliyor"
   curl -LsSf https://astral.sh/uv/install.sh | sh >/dev/null 2>&1 || true
   [[ -x "$UV" ]] || hata "uv kurulamadı. İnternet bağlantınızı denetleyip yeniden deneyin."
 fi
 
 # 2. Mergen'in kodu: GitHub'dan en son sürüm (ya da MERGEN_KAYNAK ile verilen yerel klasör).
+adim 2 "Mergen indiriliyor"
 GECICI="$(mktemp -d)"
 trap 'rm -rf "$GECICI"' EXIT
 if [[ -n "${MERGEN_KAYNAK:-}" ]]; then
   KOD="$(cd "$MERGEN_KAYNAK" && pwd)"
 else
-  adim "Mergen indiriliyor"
   curl -fsSL "$DEPO/archive/refs/heads/main.tar.gz" | tar -xz -C "$GECICI"
   KOD="$(find "$GECICI" -mindepth 1 -maxdepth 1 -type d | head -1)"
 fi
 
 # 3. Python ortamı ve Mergen (Python 3.12; ortam veri klasöründe, sisteme dokunulmaz).
-adim "Python ortamı hazırlanıyor"
+adim 3 "Python hazırlanıyor"
 mkdir -p "$UYGULAMA"
-[[ -x "$ORTAM/bin/python" ]] || "$UV" venv "$ORTAM" --python 3.12 --quiet || hata "Python ortamı oluşturulamadı."
-adim "Mergen kuruluyor"
-"$UV" pip install --python "$ORTAM/bin/python" --quiet --reinstall-package mergen "$KOD" || hata "Mergen kurulamadı."
+[[ -x "$ORTAM/bin/python" ]] || calistir "Python ortamı oluşturulamadı." "$UV" venv "$ORTAM" --python 3.12 --quiet
+adim 4 "Mergen ve kütüphaneleri kuruluyor (ilk kurulumda birkaç dakika sürebilir)"
+calistir "Mergen kurulamadı." "$UV" pip install --python "$ORTAM/bin/python" --quiet --reinstall-package mergen "$KOD"
 SIMGE_KLASORU="$("$ORTAM/bin/python" -c 'import mergen, pathlib; print(pathlib.Path(mergen.__file__).parent / "araclar")')"
 
 # 4. Uygulama simgesi.
-adim "Uygulama simgesi oluşturuluyor"
+adim 5 "Uygulama simgesi oluşturuluyor"
 if [[ "$(uname)" == "Darwin" ]]; then
   # ~/Applications/Mergen.app: Launchpad'de ve Spotlight'ta görünür, açılınca kendi penceresiyle Dock'ta ve Cmd+Tab'da
   # durur (pencere.py). Mikrofon izni ilk açılışta "Mergen" adıyla sorulur.

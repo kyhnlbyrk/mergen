@@ -22,7 +22,43 @@ $Veri = if ($env:MERGEN_HOME) { $env:MERGEN_HOME } else { Join-Path $env:LOCALAP
 $Uygulama = Join-Path $Veri "uygulama"
 $Ortam = Join-Path $Uygulama ".venv"
 
-function Adim($Metin) { Write-Host "  > $Metin" -ForegroundColor Cyan }
+function Adim($No, $Metin) { Write-Host "  [$No/5] $Metin" -ForegroundColor Cyan }
+
+# Uzun süren komut: çıktısı gizli çalışır, altında dönen işaret, geçen süre ve indirilen MB görünür (kullanıcı takıldı
+# sanmasın). MB ağ kartının sayacından: uv paketleri önce kendi önbelleğine indirip ortama en sonda kopyaladığı için ortamın
+# boyutu dakikalarca "1 MB"da kalıyordu. Yüzde gösterilmez: uv toplam ilerleme vermiyor, tahmini yüzde %90'da dakikalarca bekleyip yanıltıyordu.
+function Calistir($Dosya, [string[]]$Argumanlar, $Hata) {
+    $Bilgi = New-Object System.Diagnostics.ProcessStartInfo $Dosya
+    $Bilgi.Arguments = ($Argumanlar | ForEach-Object { '"' + $_ + '"' }) -join " "
+    $Bilgi.UseShellExecute = $false
+    $Bilgi.RedirectStandardOutput = $true
+    $Bilgi.RedirectStandardError = $true
+    $Bilgi.CreateNoWindow = $true
+    $Surec = [System.Diagnostics.Process]::Start($Bilgi)
+    $Cikti = $Surec.StandardOutput.ReadToEndAsync()
+    $Hatalar = $Surec.StandardError.ReadToEndAsync()
+    $Saat = [System.Diagnostics.Stopwatch]::StartNew()
+    $Isaret = "|/-\"; $i = 0; $Ilk = Alinan
+    while (-not $Surec.WaitForExit(250)) {
+        Write-Host -NoNewline ("`r        {0} {1:m\:ss} · {2} MB indirildi   " -f $Isaret[$i % 4], $Saat.Elapsed, [int]((Alinan) - $Ilk))
+        $i++
+    }
+    $Surec.WaitForExit()
+    if ($Surec.ExitCode -ne 0) {
+        Write-Host ""
+        Write-Host ($Hatalar.Result + $Cikti.Result).Trim() -ForegroundColor DarkGray
+        throw $Hata
+    }
+    Write-Host ("`r        ✓ {0:m\:ss} · {1} MB indirildi   " -f $Saat.Elapsed, [int]((Alinan) - $Ilk)) -ForegroundColor Green
+}
+function Alinan {
+    # Bilgisayarın ağdan aldığı toplam (MB); başka indirmeler de sayılır ama hareketi dürüstçe gösterir.
+    $Toplam = 0
+    foreach ($Kart in [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces()) {
+        if ($Kart.NetworkInterfaceType -ne "Loopback") { $Toplam += $Kart.GetIPStatistics().BytesReceived }
+    }
+    $Toplam / 1MB
+}
 
 Write-Host ""
 Write-Host "  M E R G E N  kuruluyor" -ForegroundColor Cyan
@@ -34,19 +70,19 @@ try { Invoke-RestMethod -Method Post http://127.0.0.1:8765/kapat -TimeoutSec 2 |
 # 1. uv: Python'u ve paketleri kuran araç (Python kurulu olmasa da kendisi indirir).
 $Uv = (Get-Command uv -ErrorAction SilentlyContinue).Source
 if (-not $Uv) { $Uv = Join-Path $HOME ".local\bin\uv.exe" }
+Adim 1 "Kurulum aracı (uv) hazırlanıyor"
 if (-not (Test-Path $Uv)) {
-    Adim "Kurulum aracı (uv) indiriliyor"
     powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://astral.sh/uv/install.ps1 | iex" | Out-Null
     if (-not (Test-Path $Uv)) { throw "uv kurulamadı. İnternet bağlantınızı denetleyip yeniden deneyin." }
 }
 
 # 2. Mergen'in kodu: GitHub'dan en son sürüm (ya da MERGEN_KAYNAK ile verilen yerel klasör).
+Adim 2 "Mergen indiriliyor"
 $Gecici = Join-Path ([System.IO.Path]::GetTempPath()) ("mergen-" + [guid]::NewGuid())
 New-Item -ItemType Directory -Force $Gecici | Out-Null
 if ($Kaynak) {
     $KodKlasoru = (Resolve-Path $Kaynak).Path
 } else {
-    Adim "Mergen indiriliyor"
     $Zip = Join-Path $Gecici "mergen.zip"
     Invoke-WebRequest "$Depo/archive/refs/heads/main.zip" -OutFile $Zip -UseBasicParsing
     Expand-Archive $Zip -DestinationPath $Gecici
@@ -54,21 +90,19 @@ if ($Kaynak) {
 }
 
 # 3. Python ortamı ve Mergen (Python 3.12; ortam veri klasöründe, sisteme dokunulmaz).
-Adim "Python ortamı hazırlanıyor"
+Adim 3 "Python hazırlanıyor"
 New-Item -ItemType Directory -Force $Uygulama | Out-Null
 if (-not (Test-Path (Join-Path $Ortam "Scripts\python.exe"))) {
-    & $Uv venv $Ortam --python 3.12 --quiet
-    if ($LASTEXITCODE -ne 0) { throw "Python ortamı oluşturulamadı." }
+    Calistir $Uv @("venv", $Ortam, "--python", "3.12", "--quiet") "Python ortamı oluşturulamadı."
 }
 $Python = Join-Path $Ortam "Scripts\python.exe"
 $Pythonw = Join-Path $Ortam "Scripts\pythonw.exe"
-Adim "Mergen kuruluyor"
-& $Uv pip install --python $Python --quiet --reinstall-package mergen $KodKlasoru
-if ($LASTEXITCODE -ne 0) { throw "Mergen kurulamadı." }
+Adim 4 "Mergen ve kütüphaneleri kuruluyor (ilk kurulumda birkaç dakika sürebilir)"
+Calistir $Uv @("pip", "install", "--python", $Python, "--quiet", "--reinstall-package", "mergen", $KodKlasoru) "Mergen kurulamadı."
 Remove-Item -Recurse -Force $Gecici -ErrorAction SilentlyContinue
 
 # 4. Kısayollar: masaüstü ve Başlat menüsü (konsolsuz açılır).
-Adim "Kısayollar oluşturuluyor"
+Adim 5 "Kısayollar oluşturuluyor"
 $Simge = Join-Path $Ortam "Lib\site-packages\mergen\araclar\mergen.ico"
 $Kabuk = New-Object -ComObject WScript.Shell
 $Yerler = @([Environment]::GetFolderPath("Desktop"), (Join-Path ([Environment]::GetFolderPath("Programs")) ""))
