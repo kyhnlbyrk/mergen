@@ -625,9 +625,20 @@ function beyinAciklama(ad) {
 }
 function beyinYardim(d) {
   if (!d || (d.bulundu && d.giris)) return null;
-  const parca = [];
-  if (!d.bulundu) parca.push(el("div", {}, `1. Kurmak için ${d.kabuk} uygulamasını açın ve şu komutu yapıştırıp Enter'a basın:`), komutKutu(d.kurulum));
-  parca.push(el("div", {}, `${d.bulundu ? 1 : 2}. Ardından şu komutla aboneliğinizle giriş yapın; tarayıcınız açılacak:`), komutKutu(d.giris_komutu));
+  // Teknik olmayan kullanıcı için: kurulan şeyin Mergen değil, Mergen'in beyni olan yapay zekânın kendi programı olduğu
+  // açıkça söylenir. Kurulumdan sonra pencere yeniden açılmalı: yeni program eski pencerede tanınmıyor ("claude" bulunamadı).
+  const ac = d.kabuk === "PowerShell" ? "Başlat menüsüne “PowerShell” yazıp açın" : "Cmd + Boşluk ile “Terminal” yazıp açın";
+  const parca = [el("div", { style: "margin-bottom: 12px; color: var(--text)" }, "Sorularınızı Claude düşünür, ben de cevabını size seslendiririm. Claude, Anthropic'in yapay zekâsıdır ve " +
+    "bilgisayarınızda kendi programıyla çalışır. Aşağıdaki komutlar Mergen'i değil, bu programı kurar. Bir Claude aboneliği (Pro ya da Max) gerekir.")];
+  let no = 1;
+  if (!d.bulundu) {
+    parca.push(el("div", {}, `${no++}. ${ac}, şu komutu yapıştırıp Enter'a basın. Bu, Claude'un kendi kurulum komutudur:`), komutKutu(d.kurulum));
+    parca.push(el("div", {}, `${no++}. Kurulum bitince ${d.kabuk} penceresini kapatıp yeniden açın. Yeni kurulan program ancak yeni açılan pencerede tanınır.`));
+  } else {
+    parca.push(el("div", {}, `${no++}. ${ac}.`));
+  }
+  parca.push(el("div", {}, `${no++}. Şu komutla Claude hesabınıza giriş yapın; tarayıcınız açılacak:`), komutKutu(d.giris_komutu));
+  parca.push(el("div", {}, `${no++}. Bitince aşağıdaki düğmeye basın.`));
   return el("div", { class: "bilgi uyari" }, ...parca, el("div", { class: "dugmeler" },
     el("button", { class: "dugme", onclick: () => { delete beyinDurumu[secim.beyin]; sayfaCiz(); } }, "Yaptım, tekrar bak")));
 }
