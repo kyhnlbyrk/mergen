@@ -9,12 +9,23 @@ kullanır. Size "beyim" diye hitap eder.
 - **Kurulumu kolay.** Tek komut; gerisini ilk açılışta ekrandaki sihirbaz sorar.
 - **Açık kaynak ve ücretsiz** (MIT).
 
-> **Durum:** Windows ve macOS'ta, Claude ile çalışıyor. ChatGPT ve Gemini desteği yolda.
+> **Durum:** Windows ve macOS'ta çalışıyor.
+
+## Desteklenen yapay zekâlar
+
+Mergen'in beyni, seçtiğiniz yapay zekâdır. Mergen onun resmi programını kendi aboneliğinizle kullanır; API anahtarı
+gerekmez.
+
+| Yapay zekâ | Gereken abonelik | Durum |
+|---|---|---|
+| Claude | Claude Pro ya da Max | ✅ Kullanılabilir |
+| ChatGPT | ChatGPT Plus ya da Pro | 🔜 Yakında |
+| Gemini | Google hesabı | 🔜 Yakında |
 
 ## Neler gerekir?
 
 - Windows 10/11 ya da macOS 11 ve sonrası
-- Bir **Claude aboneliği** (Pro ya da Max)
+- Desteklenen bir yapay zekânın aboneliği (şu an **Claude** Pro ya da Max)
 - Mikrofon ve hoparlör (ya da kulaklık)
 - Diskte 2-6 GB boş alan (seçtiğiniz sese ve konuşma tanımaya göre)
 
@@ -41,8 +52,8 @@ kısayoldan (macOS'ta Launchpad ya da Spotlight'tan "Mergen") açabilirsiniz.
 
 Ekranda bir kurulum sihirbazı çıkar. Bilgisayarınızı kendisi tanır, size yalnızca tercihlerinizi sorar:
 
-1. **Yapay zekâ:** Mergen'in beyni Claude'dur. Claude bilgisayarınızda kurulu değilse sihirbaz nasıl kuracağınızı adım
-   adım gösterir.
+1. **Yapay zekâ:** Mergen'in beyni olacak yapay zekâyı seçersiniz (şu an Claude; ChatGPT ve Gemini yakında). Onun
+   programı bilgisayarınızda kurulu değilse sihirbaz nasıl kuracağınızı adım adım gösterir.
 2. **Ses:** Doğal ses (insana çok yakın) ya da hafif ses (her bilgisayarda hızlı). İkisini de dinleyip seçebilirsiniz.
 3. **Konuşma tanıma:** Sizi ne kadar iyi anlasın. Sihirbaz bilgisayarınıza en uygun olanı önerir.
 4. **Yetki:** Mergen bilgisayarınızda ne kadar serbest olsun (aşağıda "Güvenlik ve gizlilik").
@@ -71,7 +82,7 @@ sesi, konuşmacıyı, konuşma tanımayı, mikrofonu ve hoparlörü değiştireb
   değiştirmez, program çalıştırmaz.
 - Bilgisayarınızı kullanması için ayarlardan **tam yetki** açılır. Tam yetkide de geri alınamayan işlerden önce (silme,
   satın alma, mesaj gönderme, sistem ayarı) sesli "evet" demenizi bekler.
-- Sesiniz bilgisayarınızdan çıkmaz: yazıya bilgisayarınızda çevrilir. Yapay zekâya (Claude'a) yalnızca söylediklerinizin
+- Sesiniz bilgisayarınızdan çıkmaz: yazıya bilgisayarınızda çevrilir. Seçtiğiniz yapay zekâya yalnızca söylediklerinizin
   yazılı hâli gider.
 
 ## Sorun mu var?
